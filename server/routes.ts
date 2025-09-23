@@ -158,7 +158,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/orders", authenticateToken, async (req, res) => {
     try {
-      const orderData = insertOrderSchema.parse(req.body);
+      // Preprocess date strings to Date objects
+      const preprocessedData = {
+        ...req.body,
+        pickupDate: typeof req.body.pickupDate === 'string' ? new Date(req.body.pickupDate) : req.body.pickupDate,
+        deliveryDate: typeof req.body.deliveryDate === 'string' ? new Date(req.body.deliveryDate) : req.body.deliveryDate,
+      };
+      
+      console.log('Preprocessed order data:', {
+        ...preprocessedData,
+        pickupDate: preprocessedData.pickupDate?.toString(),
+        deliveryDate: preprocessedData.deliveryDate?.toString()
+      });
+      
+      const orderData = insertOrderSchema.parse(preprocessedData);
       const order = await storage.createOrder(orderData);
       
       // Add initial tracking event
@@ -178,7 +191,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/orders/:id", authenticateToken, async (req, res) => {
     try {
-      const orderData = insertOrderSchema.partial().parse(req.body);
+      // Preprocess date strings to Date objects
+      const preprocessedData = {
+        ...req.body,
+        ...(req.body.pickupDate && { pickupDate: typeof req.body.pickupDate === 'string' ? new Date(req.body.pickupDate) : req.body.pickupDate }),
+        ...(req.body.deliveryDate && { deliveryDate: typeof req.body.deliveryDate === 'string' ? new Date(req.body.deliveryDate) : req.body.deliveryDate }),
+      };
+      
+      const orderData = insertOrderSchema.partial().parse(preprocessedData);
       const updatedOrder = await storage.updateOrder(req.params.id, orderData);
       
       if (!updatedOrder) {
