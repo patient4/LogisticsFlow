@@ -9,7 +9,7 @@ import {
   type OrderTrackingEvent, type InsertOrderTrackingEvent
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, like, and, count, sql } from "drizzle-orm";
+import { eq, desc, like, and, or, count, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 // Enhanced storage interface with all CRUD operations needed
@@ -120,7 +120,7 @@ export class DatabaseStorage implements IStorage {
   async searchCustomers(query: string): Promise<Customer[]> {
     return db.select().from(customers)
       .where(
-        and(
+        or(
           like(customers.name, `%${query}%`),
           like(customers.email, `%${query}%`),
           like(customers.phone, `%${query}%`)
@@ -173,9 +173,9 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
-  async updateDriverStatus(id: string, status: string): Promise<Driver | undefined> {
+  async updateDriverStatus(id: string, status: "available" | "on_the_way" | "loading" | "waiting" | "delivered"): Promise<Driver | undefined> {
     const [updated] = await db.update(drivers)
-      .set({ currentStatus: status as any })
+      .set({ currentStatus: status })
       .where(eq(drivers.id, id))
       .returning();
     return updated || undefined;
