@@ -1,12 +1,21 @@
+import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent } from "@/components/ui/card"
+
+interface DashboardMetrics {
+  totalOrders: number
+  pendingOrders: number
+  totalInTransit: number
+  totalRevenue: string
+}
 
 interface MetricCardProps {
   title: string
   value: string | number
   testId: string
+  isLoading: boolean
 }
 
-function MetricCard({ title, value, testId }: MetricCardProps) {
+function MetricCard({ title, value, testId, isLoading }: MetricCardProps) {
   return (
     <Card className="bg-muted/50">
       <CardContent className="p-6">
@@ -15,7 +24,7 @@ function MetricCard({ title, value, testId }: MetricCardProps) {
             {title}
           </p>
           <p className="text-3xl font-bold text-foreground" data-testid={`${testId}-value`}>
-            {value}
+            {isLoading ? "..." : value}
           </p>
         </div>
       </CardContent>
@@ -24,22 +33,26 @@ function MetricCard({ title, value, testId }: MetricCardProps) {
 }
 
 export function MetricsCards() {
-  // TODO: Remove mock data - replace with real metrics
-  const metrics = [
-    { title: "Total Orders", value: "4", testId: "metric-total-orders" },
-    { title: "Pending Orders", value: "4", testId: "metric-pending-orders" },
-    { title: "Total In Transit", value: "4", testId: "metric-in-transit" },
-    { title: "Total Revenue", value: "4", testId: "metric-revenue" },
+  const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
+    queryKey: ['/api/dashboard/metrics'],
+  })
+
+  const metricsData = [
+    { title: "Total Orders", value: metrics?.totalOrders || 0, testId: "metric-total-orders" },
+    { title: "Pending Orders", value: metrics?.pendingOrders || 0, testId: "metric-pending-orders" },
+    { title: "In Transit", value: metrics?.totalInTransit || 0, testId: "metric-in-transit" },
+    { title: "Total Revenue", value: metrics?.totalRevenue ? `$${parseFloat(metrics.totalRevenue).toLocaleString()}` : "$0", testId: "metric-revenue" },
   ]
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      {metrics.map((metric) => (
+      {metricsData.map((metric) => (
         <MetricCard
           key={metric.testId}
           title={metric.title}
           value={metric.value}
           testId={metric.testId}
+          isLoading={isLoading}
         />
       ))}
     </div>
