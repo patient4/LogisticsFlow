@@ -353,21 +353,69 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDispatch(id: string): Promise<Dispatch | undefined> {
-    const [dispatch] = await db.select().from(dispatches).where(eq(dispatches.id, id));
-    return dispatch || undefined;
+    const result = await db.select({
+      dispatch: dispatches,
+      order: orders,
+      customer: customers,
+      carrier: carriers,
+      driver: drivers,
+    })
+    .from(dispatches)
+    .leftJoin(orders, eq(dispatches.orderId, orders.id))
+    .leftJoin(customers, eq(orders.customerId, customers.id))
+    .leftJoin(carriers, eq(dispatches.carrierId, carriers.id))
+    .leftJoin(drivers, eq(dispatches.driverId, drivers.id))
+    .where(eq(dispatches.id, id));
+
+    if (result.length === 0) return undefined;
+    
+    const row = result[0];
+    return {
+      ...row.dispatch,
+      order: row.order!,
+      customer: row.customer!,
+      carrier: row.carrier!,
+      driver: row.driver || undefined,
+    } as any;
   }
 
   async getDispatches(limit: number = 100, offset: number = 0): Promise<Dispatch[]> {
-    return db.select().from(dispatches)
-      .orderBy(desc(dispatches.dispatchedAt))
-      .limit(limit)
-      .offset(offset);
+    const result = await db.select({
+      dispatch: dispatches,
+      order: orders,
+      customer: customers,
+      carrier: carriers,
+      driver: drivers,
+    })
+    .from(dispatches)
+    .leftJoin(orders, eq(dispatches.orderId, orders.id))
+    .leftJoin(customers, eq(orders.customerId, customers.id))
+    .leftJoin(carriers, eq(dispatches.carrierId, carriers.id))
+    .leftJoin(drivers, eq(dispatches.driverId, drivers.id))
+    .orderBy(desc(dispatches.dispatchedAt))
+    .limit(limit)
+    .offset(offset);
+
+    return result.map(row => ({
+      ...row.dispatch,
+      order: row.order!,
+      customer: row.customer!,
+      carrier: row.carrier!,
+      driver: row.driver || undefined,
+    })) as any;
   }
 
   async getDispatchesByOrder(orderId: string): Promise<Dispatch[]> {
     return db.select().from(dispatches)
       .where(eq(dispatches.orderId, orderId))
       .orderBy(desc(dispatches.dispatchedAt));
+  }
+
+  async deleteDispatch(id: string): Promise<boolean> {
+    const [deleted] = await db.delete(dispatches)
+      .where(eq(dispatches.id, id))
+      .returning();
+    return !!deleted;
   }
 
   // Dashboard metrics

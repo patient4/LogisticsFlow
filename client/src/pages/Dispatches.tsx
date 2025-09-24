@@ -1,4 +1,5 @@
 import { MetricsCards } from "@/components/MetricsCards"
+import { DispatchesTable } from "@/components/DispatchesTable"
 
 export default function Dispatches() {
   return (
@@ -15,14 +16,11 @@ export default function Dispatches() {
       {/* TODO: Create DispatchActions component */}
       <div className="bg-card rounded-lg p-4 border border-border">
         <h2 className="text-lg font-semibold text-foreground mb-4">Dispatch Actions</h2>
-        <p className="text-muted-foreground">Dispatch actions will be implemented here</p>
+        <p className="text-muted-foreground">Export dispatches, bulk operations, etc.</p>
       </div>
       
-      {/* TODO: Create DispatchesTable component */}
-      <div className="bg-card rounded-lg p-4 border border-border">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Dispatches Table</h2>
-        <p className="text-muted-foreground">Dispatches table will be implemented here</p>
-      </div>
+      {/* Dispatches Table */}
+      <DispatchesTable />
     </div>
   )
 }

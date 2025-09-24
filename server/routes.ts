@@ -431,6 +431,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all dispatches
+  app.get("/api/dispatches", authenticateToken, async (req, res) => {
+    try {
+      const { limit = 50, offset = 0 } = req.query;
+      const dispatches = await storage.getDispatches(
+        parseInt(limit as string), 
+        parseInt(offset as string)
+      );
+      res.json(dispatches);
+    } catch (error) {
+      console.error('Get dispatches error:', error);
+      res.status(500).json({ error: "Failed to fetch dispatches" });
+    }
+  });
+
+  // Get specific dispatch
+  app.get("/api/dispatches/:id", authenticateToken, async (req, res) => {
+    try {
+      const dispatch = await storage.getDispatch(req.params.id);
+      if (!dispatch) {
+        return res.status(404).json({ error: "Dispatch not found" });
+      }
+      res.json(dispatch);
+    } catch (error) {
+      console.error('Get dispatch error:', error);
+      res.status(500).json({ error: "Failed to fetch dispatch" });
+    }
+  });
+
+  // Delete dispatch
+  app.delete("/api/dispatches/:id", authenticateToken, async (req, res) => {
+    try {
+      const dispatchId = req.params.id;
+      
+      // Verify dispatch exists before deletion
+      const existingDispatch = await storage.getDispatch(dispatchId);
+      if (!existingDispatch) {
+        return res.status(404).json({ error: "Dispatch not found" });
+      }
+      
+      const deleted = await storage.deleteDispatch(dispatchId);
+      if (!deleted) {
+        return res.status(500).json({ error: "Failed to delete dispatch" });
+      }
+      
+      res.json({ message: "Dispatch deleted successfully" });
+    } catch (error) {
+      console.error('Delete dispatch error:', error);
+      res.status(500).json({ error: "Failed to delete dispatch" });
+    }
+  });
+
   // Tracking update routes
   app.patch("/api/orders/:id/status", authenticateToken, async (req, res) => {
     try {
