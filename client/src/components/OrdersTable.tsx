@@ -147,6 +147,7 @@ export function OrdersTable() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false)
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null)
+  const [shipmentNotes, setShipmentNotes] = useState("")
   
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -196,6 +197,103 @@ export function OrdersTable() {
       return response.json()
     },
   })
+
+  // Order status update mutation
+  const updateOrderStatusMutation = useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: string, status: Order['orderStatus'] }) => {
+      const response = await apiRequest('PATCH', `/api/orders/${orderId}/status`, { orderStatus: status })
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
+      toast({ title: "Success", description: "Order status updated successfully" })
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update order status", variant: "destructive" })
+    },
+  })
+
+  // Payment status update mutation
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: string, status: Order['paymentStatus'] }) => {
+      const response = await apiRequest('PATCH', `/api/orders/${orderId}/payment`, { paymentStatus: status })
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
+      toast({ title: "Success", description: "Payment status updated successfully" })
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update payment status", variant: "destructive" })
+    },
+  })
+
+  // Carrier assignment update mutation
+  const updateCarrierMutation = useMutation({
+    mutationFn: async ({ orderId, carrierId }: { orderId: string, carrierId?: string }) => {
+      const response = await apiRequest('PATCH', `/api/orders/${orderId}/carrier`, { carrierId })
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
+      toast({ title: "Success", description: "Carrier assignment updated successfully" })
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update carrier assignment", variant: "destructive" })
+    },
+  })
+
+  // ETA update mutation
+  const updateETAMutation = useMutation({
+    mutationFn: async ({ orderId, deliveryDate }: { orderId: string, deliveryDate: string }) => {
+      const response = await apiRequest('PATCH', `/api/orders/${orderId}/eta`, { deliveryDate })
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
+      toast({ title: "Success", description: "Estimated delivery date updated successfully" })
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update ETA", variant: "destructive" })
+    },
+  })
+
+  // Shipment notes update mutation
+  const updateNotesMutation = useMutation({
+    mutationFn: async ({ orderId, notes }: { orderId: string, notes: string }) => {
+      const response = await apiRequest('PATCH', `/api/orders/${orderId}/notes`, { notes })
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
+      toast({ title: "Success", description: "Shipment notes saved successfully" })
+      setShipmentNotes("") // Clear the form after successful save
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save shipment notes", variant: "destructive" })
+    },
+  })
+
+  // Helper functions for tracking updates
+  const updateOrderStatus = (orderId: string, status: Order['orderStatus']) => {
+    updateOrderStatusMutation.mutate({ orderId, status })
+  }
+
+  const updatePaymentStatus = (orderId: string, status: Order['paymentStatus']) => {
+    updatePaymentStatusMutation.mutate({ orderId, status })
+  }
+
+  const updateCarrierAssignment = (orderId: string, carrierId?: string) => {
+    updateCarrierMutation.mutate({ orderId, carrierId })
+  }
+
+  const updateETA = (orderId: string, deliveryDate: string) => {
+    updateETAMutation.mutate({ orderId, deliveryDate })
+  }
+
+  const saveShipmentNotes = (orderId: string, notes: string) => {
+    updateNotesMutation.mutate({ orderId, notes })
+  }
 
   // Create order mutation
   const createOrderMutation = useMutation({
@@ -1070,7 +1168,10 @@ export function OrdersTable() {
 
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Update Status</label>
-                        <Select defaultValue={trackingOrder.orderStatus}>
+                        <Select 
+                          defaultValue={trackingOrder.orderStatus}
+                          onValueChange={(value) => updateOrderStatus(trackingOrder.id, value as Order['orderStatus'])}
+                        >
                           <SelectTrigger data-testid="select-order-status">
                             <SelectValue />
                           </SelectTrigger>
@@ -1087,16 +1188,18 @@ export function OrdersTable() {
                       
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Payment Status</label>
-                        <Select defaultValue={trackingOrder.paymentStatus}>
+                        <Select 
+                          defaultValue={trackingOrder.paymentStatus}
+                          onValueChange={(value) => updatePaymentStatus(trackingOrder.id, value as Order['paymentStatus'])}
+                        >
                           <SelectTrigger data-testid="select-payment-status">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="paid">Paid</SelectItem>
-                            <SelectItem value="partial">Partial</SelectItem>
+                            <SelectItem value="processing">Processing</SelectItem>
                             <SelectItem value="failed">Failed</SelectItem>
-                            <SelectItem value="refunded">Refunded</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1111,21 +1214,32 @@ export function OrdersTable() {
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Assigned Carrier</label>
-                        <Select defaultValue="">
+                        <Select 
+                          defaultValue={trackingOrder.carrierId || ""}
+                          onValueChange={(value) => updateCarrierAssignment(trackingOrder.id, value || undefined)}
+                        >
                           <SelectTrigger data-testid="select-carrier">
                             <SelectValue placeholder="Select carrier..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="carrier1">Swift Logistics</SelectItem>
-                            <SelectItem value="carrier2">Express Freight</SelectItem>
-                            <SelectItem value="carrier3">Global Transport</SelectItem>
+                            <SelectItem value="">No carrier assigned</SelectItem>
+                            {carriers.map((carrier) => (
+                              <SelectItem key={carrier.id} value={carrier.id}>
+                                {carrier.name} - {carrier.code}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
                       
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Estimated Delivery</label>
-                        <Input type="date" data-testid="input-eta" />
+                        <Input 
+                          type="date" 
+                          defaultValue={trackingOrder.deliveryDate ? new Date(trackingOrder.deliveryDate).toISOString().split('T')[0] : ''}
+                          onChange={(e) => updateETA(trackingOrder.id, e.target.value)}
+                          data-testid="input-eta" 
+                        />
                       </div>
                     </CardContent>
                   </Card>
@@ -1139,11 +1253,18 @@ export function OrdersTable() {
                       <Textarea 
                         placeholder="Add tracking notes, updates, or special instructions..."
                         rows={4}
+                        value={shipmentNotes}
+                        onChange={(e) => setShipmentNotes(e.target.value)}
                         data-testid="textarea-notes"
                       />
-                      <Button className="w-full" data-testid="button-save-tracking-updates">
+                      <Button 
+                        className="w-full" 
+                        onClick={() => saveShipmentNotes(trackingOrder.id, shipmentNotes)}
+                        disabled={updateNotesMutation.isPending}
+                        data-testid="button-save-tracking-updates"
+                      >
                         <Save className="w-4 h-4 mr-2" />
-                        Save Updates
+                        {updateNotesMutation.isPending ? "Saving..." : "Save Updates"}
                       </Button>
                     </CardContent>
                   </Card>

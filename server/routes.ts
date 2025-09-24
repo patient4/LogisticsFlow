@@ -7,6 +7,39 @@ import {
 } from "@shared/schema";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { z } from "zod";
+
+// Status transition matrix - defines valid next states for each current state
+// Based on stepper requirements: Pending → Processing → Shipped → In Transit → Delivered
+const statusTransitions: Record<string, string[]> = {
+  "pending": ["processing", "cancelled"],
+  "processing": ["shipped", "cancelled"],
+  "shipped": ["in_transit", "cancelled"], // Must go through in_transit before delivered
+  "in_transit": ["delivered", "cancelled"],
+  "delivered": ["delivered"], // Can only stay delivered
+  "cancelled": ["cancelled"]  // Can only stay cancelled
+};
+
+// Validation schemas for tracking updates
+const orderStatusUpdateSchema = z.object({
+  orderStatus: z.enum(["pending", "processing", "shipped", "in_transit", "delivered", "cancelled"])
+}).strict();
+
+const paymentStatusUpdateSchema = z.object({
+  paymentStatus: z.enum(["pending", "paid", "processing", "failed"])
+}).strict();
+
+const carrierUpdateSchema = z.object({
+  carrierId: z.string().uuid().or(z.literal("")).transform(val => val === "" ? null : val)
+}).strict();
+
+const etaUpdateSchema = z.object({
+  deliveryDate: z.coerce.date()
+}).strict();
+
+const notesUpdateSchema = z.object({
+  notes: z.string().min(0).max(10000) // Limit notes to 10KB
+}).strict();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -343,6 +376,215 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Assign driver error:', error);
       res.status(500).json({ error: "Failed to assign driver" });
+    }
+  });
+
+  // Tracking update routes
+  app.patch("/api/orders/:id/status", authenticateToken, async (req, res) => {
+    try {
+      const { orderStatus } = orderStatusUpdateSchema.parse(req.body);
+      
+      // Verify order exists before update
+      const existingOrder = await storage.getOrder(req.params.id);
+      if (!existingOrder) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Business logic: enforce valid status transitions
+      const validNextStates = statusTransitions[existingOrder.orderStatus] || [];
+      if (!validNextStates.includes(orderStatus)) {
+        return res.status(400).json({ 
+          error: `Invalid status transition from ${existingOrder.orderStatus} to ${orderStatus}`,
+          validTransitions: validNextStates
+        });
+      }
+      
+      const updatedOrder = await storage.updateOrder(req.params.id, { orderStatus });
+      
+      if (!updatedOrder) {
+        return res.status(500).json({ error: "Failed to update order" });
+      }
+
+      // Add tracking event only after successful update
+      await storage.addOrderTrackingEvent({
+        orderId: req.params.id,
+        status: orderStatus,
+        description: `Order status updated to ${orderStatus}`,
+      });
+
+      res.json(updatedOrder);
+    } catch (error: any) {
+      console.error('Update order status error:', error);
+      
+      // Handle Zod validation errors
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          error: "Invalid request data", 
+          details: error.errors 
+        });
+      }
+      
+      res.status(500).json({ error: "Failed to update order status" });
+    }
+  });
+
+  app.patch("/api/orders/:id/payment", authenticateToken, async (req, res) => {
+    try {
+      const { paymentStatus } = paymentStatusUpdateSchema.parse(req.body);
+      
+      // Verify order exists before update
+      const existingOrder = await storage.getOrder(req.params.id);
+      if (!existingOrder) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      const updatedOrder = await storage.updateOrder(req.params.id, { paymentStatus });
+      
+      if (!updatedOrder) {
+        return res.status(500).json({ error: "Failed to update payment status" });
+      }
+
+      // Add tracking event only after successful update
+      await storage.addOrderTrackingEvent({
+        orderId: req.params.id,
+        status: "payment_updated",
+        description: `Payment status updated to ${paymentStatus}`,
+      });
+
+      res.json(updatedOrder);
+    } catch (error: any) {
+      console.error('Update payment status error:', error);
+      
+      // Handle Zod validation errors
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          error: "Invalid request data", 
+          details: error.errors 
+        });
+      }
+      
+      res.status(500).json({ error: "Failed to update payment status" });
+    }
+  });
+
+  app.patch("/api/orders/:id/carrier", authenticateToken, async (req, res) => {
+    try {
+      const { carrierId } = carrierUpdateSchema.parse(req.body);
+      
+      // Verify order exists before update
+      const existingOrder = await storage.getOrder(req.params.id);
+      if (!existingOrder) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      const updatedOrder = await storage.updateOrder(req.params.id, { carrierId });
+      
+      if (!updatedOrder) {
+        return res.status(500).json({ error: "Failed to update carrier assignment" });
+      }
+
+      // Add tracking event only after successful update
+      const description = carrierId 
+        ? "Carrier assigned to order" 
+        : "Carrier removed from order";
+      
+      await storage.addOrderTrackingEvent({
+        orderId: req.params.id,
+        status: "carrier_updated",
+        description,
+      });
+
+      res.json(updatedOrder);
+    } catch (error: any) {
+      console.error('Update carrier assignment error:', error);
+      
+      // Handle Zod validation errors
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          error: "Invalid request data", 
+          details: error.errors 
+        });
+      }
+      
+      res.status(500).json({ error: "Failed to update carrier assignment" });
+    }
+  });
+
+  app.patch("/api/orders/:id/eta", authenticateToken, async (req, res) => {
+    try {
+      const { deliveryDate } = etaUpdateSchema.parse(req.body);
+      
+      // Verify order exists before update
+      const existingOrder = await storage.getOrder(req.params.id);
+      if (!existingOrder) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      const updatedOrder = await storage.updateOrder(req.params.id, { deliveryDate });
+      
+      if (!updatedOrder) {
+        return res.status(500).json({ error: "Failed to update delivery date" });
+      }
+
+      // Add tracking event only after successful update
+      await storage.addOrderTrackingEvent({
+        orderId: req.params.id,
+        status: "eta_updated",
+        description: `Estimated delivery date updated to ${deliveryDate.toISOString().split('T')[0]}`,
+      });
+
+      res.json(updatedOrder);
+    } catch (error: any) {
+      console.error('Update ETA error:', error);
+      
+      // Handle Zod validation errors
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          error: "Invalid date format", 
+          details: error.errors 
+        });
+      }
+      
+      res.status(500).json({ error: "Failed to update ETA" });
+    }
+  });
+
+  app.patch("/api/orders/:id/notes", authenticateToken, async (req, res) => {
+    try {
+      const { notes } = notesUpdateSchema.parse(req.body);
+      
+      // Verify order exists before update
+      const existingOrder = await storage.getOrder(req.params.id);
+      if (!existingOrder) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      const updatedOrder = await storage.updateOrder(req.params.id, { notes });
+      
+      if (!updatedOrder) {
+        return res.status(500).json({ error: "Failed to update notes" });
+      }
+
+      // Add tracking event only after successful update
+      await storage.addOrderTrackingEvent({
+        orderId: req.params.id,
+        status: "notes_updated",
+        description: "Shipment notes updated",
+      });
+
+      res.json(updatedOrder);
+    } catch (error: any) {
+      console.error('Update notes error:', error);
+      
+      // Handle Zod validation errors
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          error: "Invalid request data", 
+          details: error.errors 
+        });
+      }
+      
+      res.status(500).json({ error: "Failed to update shipment notes" });
     }
   });
 
