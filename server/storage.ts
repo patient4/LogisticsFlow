@@ -253,8 +253,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteOrder(id: string): Promise<boolean> {
-    const result = await db.delete(orders).where(eq(orders.id, id));
-    return (result.rowCount || 0) > 0;
+    try {
+      // First, delete all related tracking events
+      await db.delete(orderTrackingEvents).where(eq(orderTrackingEvents.orderId, id));
+      
+      // Then delete the order
+      const result = await db.delete(orders).where(eq(orders.id, id));
+      return (result.rowCount || 0) > 0;
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      throw error; // Re-throw so the API route can handle it properly
+    }
   }
 
   async searchOrders(query: string): Promise<(Order & { customer: Customer; carrier?: Carrier; driver?: Driver })[]> {

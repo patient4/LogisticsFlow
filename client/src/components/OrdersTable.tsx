@@ -254,6 +254,68 @@ export function OrdersTable() {
     },
   })
 
+  // Edit order mutation
+  const editOrderMutation = useMutation({
+    mutationFn: async ({ orderId, orderData }: { orderId: string; orderData: z.infer<typeof createOrderSchema> }) => {
+      console.log('Updating order with data:', orderData)
+      console.log('Order ID:', orderId)
+      
+      // Transform data similar to create mutation
+      const transformedData = {
+        ...orderData,
+        // Convert date strings to Date objects
+        pickupDate: new Date(orderData.pickupDate),
+        deliveryDate: new Date(orderData.deliveryDate),
+        // Convert numbers to strings for decimal fields  
+        amount: orderData.amount.toString(),
+        gstPercentage: orderData.gstPercentage.toString(),
+        numberOfPallets: parseInt(orderData.numberOfPallets.toString()),
+        // Transform location arrays for database storage
+        pickupLocations: orderData.pickupLocations.length > 0 
+          ? orderData.pickupLocations.map(location => JSON.stringify({
+              address: location.address,
+              date: location.date,
+              time: location.time || null,
+              notes: location.notes || null,
+            }))
+          : null,
+        deliveryLocations: orderData.deliveryLocations.length > 0 
+          ? orderData.deliveryLocations.map(location => JSON.stringify({
+              address: location.address,
+              date: location.date,
+              time: location.time || null,
+              notes: location.notes || null,
+            }))
+          : null,
+      }
+      
+      console.log('Transformed data for API:', transformedData)
+      
+      const response = await apiRequest('PUT', `/api/orders/${orderId}`, transformedData)
+      const result = await response.json()
+      console.log('Order update response:', result)
+      return result
+    },
+    onSuccess: (data) => {
+      console.log('Order updated successfully:', data)
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/metrics'] })
+      setEditingOrder(null)
+      toast({
+        title: "Success",
+        description: "Order updated successfully",
+      })
+    },
+    onError: (error) => {
+      console.error('Edit order error:', error)
+      toast({
+        title: "Error",
+        description: `Failed to update order: ${error.message}`,
+        variant: "destructive",
+      })
+    },
+  })
+
   // Delete order mutation
   const deleteOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
@@ -585,6 +647,24 @@ export function OrdersTable() {
                 onSubmit={(data) => createOrderMutation.mutate(data)}
                 isLoading={createOrderMutation.isPending}
               />
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Order Modal */}
+          <Dialog open={!!editingOrder} onOpenChange={(open) => !open && setEditingOrder(null)}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Edit Order {editingOrder?.orderNumber}</DialogTitle>
+              </DialogHeader>
+              {editingOrder && (
+                <EditOrderForm
+                  customers={customers}
+                  carriers={carriers}
+                  order={editingOrder}
+                  onSubmit={(data) => editOrderMutation.mutate({ orderId: editingOrder.id, orderData: data })}
+                  isLoading={editOrderMutation.isPending}
+                />
+              )}
             </DialogContent>
           </Dialog>
         </div>
@@ -1299,6 +1379,584 @@ function CreateOrderForm({ customers, carriers, onSubmit, isLoading }: CreateOrd
             onClick={() => console.log('Submit button clicked')}
           >
             {isLoading ? "Creating..." : "Create Order"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  )
+}
+
+// EditOrderForm component
+interface EditOrderFormProps {
+  customers: Customer[]
+  carriers: Carrier[]
+  order: Order
+  onSubmit: (data: z.infer<typeof createOrderSchema>) => void
+  isLoading: boolean
+}
+
+function EditOrderForm({ customers, carriers, order, onSubmit, isLoading }: EditOrderFormProps) {
+  const form = useForm<z.infer<typeof createOrderSchema>>({
+    resolver: zodResolver(createOrderSchema),
+    defaultValues: {
+      customerId: order.customerId,
+      carrierId: order.carrierId || "",
+      pickupAddress: order.pickupAddress,
+      pickupDate: order.pickupDate.split('T')[0], // Convert ISO date to YYYY-MM-DD
+      pickupTime: order.pickupTime || "",
+      deliveryAddress: order.deliveryAddress,
+      deliveryDate: order.deliveryDate.split('T')[0], // Convert ISO date to YYYY-MM-DD  
+      deliveryTime: order.deliveryTime || "",
+      pickupLocations: [], // TODO: Parse JSON from database if exists
+      deliveryLocations: [], // TODO: Parse JSON from database if exists
+      numberOfPallets: order.numberOfPallets,
+      weight: order.weight || "",
+      dimensions: order.dimensions || "",
+      amount: parseFloat(order.amount),
+      gstPercentage: parseFloat(order.gstPercentage || "0"),
+      notes: order.notes || "",
+    },
+  })
+
+  // Field arrays for multiple pickup and delivery locations
+  const {
+    fields: pickupFields,
+    append: appendPickup,
+    remove: removePickup,
+  } = useFieldArray({
+    control: form.control,
+    name: "pickupLocations",
+  })
+
+  const {
+    fields: deliveryFields,
+    append: appendDelivery,
+    remove: removeDelivery,
+  } = useFieldArray({
+    control: form.control,
+    name: "deliveryLocations",
+  })
+
+  const handleSubmit = (data: z.infer<typeof createOrderSchema>) => {
+    console.log('Form submitted with data:', data)
+    console.log('Form validation errors:', form.formState.errors)
+    
+    // Convert empty strings to undefined for optional fields
+    const cleanedData = {
+      ...data,
+      carrierId: data.carrierId === "" ? undefined : data.carrierId,
+      pickupTime: data.pickupTime === "" ? undefined : data.pickupTime,
+      deliveryTime: data.deliveryTime === "" ? undefined : data.deliveryTime,
+      weight: data.weight === "" ? undefined : data.weight,
+      dimensions: data.dimensions === "" ? undefined : data.dimensions,
+      notes: data.notes === "" ? undefined : data.notes,
+    }
+    
+    console.log('Cleaned data for API:', cleanedData)
+    onSubmit(cleanedData)
+  }
+
+  return (
+    <Form {...form}>
+      <form 
+        onSubmit={(e) => {
+          console.log('Edit form submit event triggered')
+          console.log('Form state:', form.formState)
+          console.log('Form values:', form.getValues())
+          form.handleSubmit(handleSubmit)(e)
+        }} 
+        className="space-y-6"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Customer Selection */}
+          <FormField
+            control={form.control}
+            name="customerId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Customer *</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="edit-select-customer">
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {customers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.name} - {customer.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Carrier Selection */}
+          <FormField
+            control={form.control}
+            name="carrierId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Carrier</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="edit-select-carrier">
+                      <SelectValue placeholder="Select carrier (optional)" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {carriers.map((carrier) => (
+                      <SelectItem key={carrier.id} value={carrier.id}>
+                        {carrier.name} - {carrier.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Pickup Information */}
+        <div className="space-y-4">
+          <h4 className="font-medium text-sm">Pickup Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <FormField
+                control={form.control}
+                name="pickupAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pickup Address *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter pickup address" {...field} data-testid="edit-input-pickup-address" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="pickupDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Pickup Date *</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="date" 
+                      {...field} 
+                      data-testid="edit-input-pickup-date"
+                      onChange={(e) => {
+                        console.log('Pickup date changed:', e.target.value)
+                        field.onChange(e.target.value)
+                        form.trigger('pickupDate')
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <FormField
+            control={form.control}
+            name="pickupTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Pickup Time</FormLabel>
+                <FormControl>
+                  <Input type="time" {...field} data-testid="edit-input-pickup-time" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Delivery Information */}
+        <div className="space-y-4">
+          <h4 className="font-medium text-sm">Delivery Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <FormField
+                control={form.control}
+                name="deliveryAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Delivery Address *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter delivery address" {...field} data-testid="edit-input-delivery-address" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="deliveryDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Delivery Date *</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="date" 
+                      {...field} 
+                      data-testid="edit-input-delivery-date"
+                      onChange={(e) => {
+                        console.log('Delivery date changed:', e.target.value)
+                        field.onChange(e.target.value)
+                        form.trigger('deliveryDate')
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <FormField
+            control={form.control}
+            name="deliveryTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Delivery Time</FormLabel>
+                <FormControl>
+                  <Input type="time" {...field} data-testid="edit-input-delivery-time" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Additional Pickup Locations */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-sm">Additional Pickup Locations</h4>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => appendPickup({ address: "", date: "", time: "", notes: "" })}
+              data-testid="edit-button-add-pickup"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Pickup
+            </Button>
+          </div>
+
+          {pickupFields.map((field, index) => (
+            <Card key={field.id} className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h5 className="text-sm font-medium">Pickup Location {index + 1}</h5>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removePickup(index)}
+                  data-testid={`edit-button-remove-pickup-${index}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <FormField
+                    control={form.control}
+                    name={`pickupLocations.${index}.address`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter pickup address" {...field} data-testid={`edit-input-pickup-address-${index}`} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name={`pickupLocations.${index}.date`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid={`edit-input-pickup-date-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <FormField
+                  control={form.control}
+                  name={`pickupLocations.${index}.time`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} data-testid={`edit-input-pickup-time-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`pickupLocations.${index}.notes`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Optional notes" {...field} data-testid={`edit-input-pickup-notes-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Additional Delivery Locations */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-sm">Additional Delivery Locations</h4>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => appendDelivery({ address: "", date: "", time: "", notes: "" })}
+              data-testid="edit-button-add-delivery"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Delivery
+            </Button>
+          </div>
+
+          {deliveryFields.map((field, index) => (
+            <Card key={field.id} className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h5 className="text-sm font-medium">Delivery Location {index + 1}</h5>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removeDelivery(index)}
+                  data-testid={`edit-button-remove-delivery-${index}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <FormField
+                    control={form.control}
+                    name={`deliveryLocations.${index}.address`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter delivery address" {...field} data-testid={`edit-input-delivery-address-${index}`} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name={`deliveryLocations.${index}.date`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid={`edit-input-delivery-date-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <FormField
+                  control={form.control}
+                  name={`deliveryLocations.${index}.time`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} data-testid={`edit-input-delivery-time-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`deliveryLocations.${index}.notes`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Optional notes" {...field} data-testid={`edit-input-delivery-notes-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Package Details */}
+        <div className="space-y-4">
+          <h4 className="font-medium text-sm">Package Details</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <FormField
+              control={form.control}
+              name="numberOfPallets"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Number of Pallets</FormLabel>
+                  <FormControl>
+                    <Input type="number" min="0" {...field} data-testid="edit-input-pallets" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="weight"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Weight (kg)</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" min="0" {...field} data-testid="edit-input-weight" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dimensions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dimensions (LxWxH)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 120x80x150 cm" {...field} data-testid="edit-input-dimensions" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Financial Information */}
+        <div className="space-y-4">
+          <h4 className="font-medium text-sm">Financial Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Amount ($) *</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      step="0.01" 
+                      min="0" 
+                      {...field}
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseFloat(e.target.value))}
+                      data-testid="edit-input-amount"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="gstPercentage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>GST Percentage (%)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      step="0.01" 
+                      min="0" 
+                      max="100"
+                      {...field}
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseFloat(e.target.value))}
+                      data-testid="edit-input-gst"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Notes */}
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notes</FormLabel>
+              <FormControl>
+                <Textarea 
+                  placeholder="Add any additional notes or instructions..."
+                  className="resize-none"
+                  rows={3}
+                  {...field}
+                  data-testid="edit-textarea-notes"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Submit Button */}
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setEditingOrder(null)}
+            disabled={isLoading}
+            data-testid="edit-button-cancel"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isLoading}
+            data-testid="edit-button-submit-order"
+          >
+            {isLoading ? "Updating..." : "Update Order"}
           </Button>
         </div>
       </form>
