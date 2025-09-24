@@ -28,6 +28,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import {
   Form,
   FormControl,
   FormField,
@@ -45,7 +51,13 @@ import {
   Users,
   DollarSign,
   Phone,
-  Mail
+  Mail,
+  MapPin,
+  Calendar,
+  Package,
+  CreditCard,
+  TrendingUp,
+  X
 } from "lucide-react"
 import type { Customer, Order, InsertCustomer } from "@/../../shared/schema"
 import { insertCustomerSchema } from "@/../../shared/schema"
@@ -62,6 +74,8 @@ interface CustomerWithStats extends Customer {
 export default function Customers() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null)
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false)
   const { toast } = useToast()
 
   // Form for adding new customer
@@ -132,6 +146,22 @@ export default function Customers() {
 
   const isLoading = isLoadingCustomers || isLoadingOrders
 
+  // Fetch selected customer details for profile drawer
+  const { data: selectedCustomer, isLoading: isLoadingSelectedCustomer } = useQuery({
+    queryKey: ['/api/customers', selectedCustomerId],
+    queryFn: async () => {
+      if (!selectedCustomerId) return null
+      const response = await fetch(`/api/customers/${selectedCustomerId}`)
+      if (!response.ok) throw new Error('Failed to fetch customer details')
+      return response.json() as Customer
+    },
+    enabled: !!selectedCustomerId && isProfileDrawerOpen
+  })
+
+  // Get selected customer's orders for profile drawer
+  const selectedCustomerOrders = orders.filter(order => order.customerId === selectedCustomerId)
+  const selectedCustomerStats = selectedCustomerId ? customersWithStats.find(c => c.id === selectedCustomerId) : null
+
   // Create customer mutation
   const createCustomerMutation = useMutation({
     mutationFn: async (customerData: InsertCustomer) => {
@@ -168,8 +198,8 @@ export default function Customers() {
   }
 
   const handleViewProfile = (customerId: string) => {
-    console.log('View profile for customer:', customerId)
-    // TODO: Implement customer profile drawer
+    setSelectedCustomerId(customerId)
+    setIsProfileDrawerOpen(true)
   }
 
   const handleEditCustomer = (customerId: string) => {
@@ -509,6 +539,183 @@ export default function Customers() {
           )}
         </CardContent>
       </Card>
+
+      {/* Customer Profile Drawer */}
+      <Sheet open={isProfileDrawerOpen} onOpenChange={setIsProfileDrawerOpen}>
+        <SheetContent className="w-[400px] sm:w-[600px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Customer Profile
+            </SheetTitle>
+          </SheetHeader>
+          
+          {isLoadingSelectedCustomer ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-muted-foreground">Loading customer details...</p>
+            </div>
+          ) : selectedCustomer && selectedCustomerStats ? (
+            <div className="mt-6 space-y-6">
+              {/* Customer Header */}
+              <div className="border-b pb-4">
+                <h2 className="text-xl font-semibold" data-testid="customer-profile-name">
+                  {selectedCustomer.name}
+                </h2>
+                <Badge 
+                  variant={selectedCustomerStats.status === "active" ? "default" : "secondary"}
+                  className="mt-2"
+                  data-testid="customer-profile-status"
+                >
+                  {selectedCustomerStats.status}
+                </Badge>
+              </div>
+
+              {/* Contact Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Contact Information
+                </h3>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span data-testid="customer-profile-email">{selectedCustomer.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span data-testid="customer-profile-phone">{selectedCustomer.phone}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div>
+                      <div data-testid="customer-profile-address">{selectedCustomer.address}</div>
+                      <div className="text-muted-foreground text-sm" data-testid="customer-profile-location">
+                        {selectedCustomer.city}, {selectedCustomer.country}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Revenue & Statistics */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Revenue & Statistics
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Orders</p>
+                          <p className="text-2xl font-bold" data-testid="customer-profile-total-orders">
+                            {selectedCustomerStats.totalOrders}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Spend</p>
+                          <p className="text-2xl font-bold" data-testid="customer-profile-total-spend">
+                            {formatCurrency(selectedCustomerStats.totalSpend)}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Avg Order Value</p>
+                          <p className="text-lg font-semibold" data-testid="customer-profile-avg-order">
+                            {selectedCustomerStats.totalOrders > 0 
+                              ? formatCurrency(selectedCustomerStats.totalSpend / selectedCustomerStats.totalOrders)
+                              : formatCurrency(0)
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Customer Since</p>
+                          <p className="text-lg font-semibold" data-testid="customer-profile-since">
+                            {new Date(selectedCustomer.createdAt || '').toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Order History */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Order History
+                </h3>
+                {selectedCustomerOrders.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-6 text-center">
+                      <p className="text-muted-foreground" data-testid="customer-profile-no-orders">
+                        No orders found for this customer.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {selectedCustomerOrders.map((order) => (
+                      <Card key={order.id} className="hover-elevate">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium" data-testid={`order-number-${order.id}`}>
+                                Order #{order.orderNumber}
+                              </p>
+                              <p className="text-sm text-muted-foreground" data-testid={`order-date-${order.id}`}>
+                                {new Date(order.createdAt || '').toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold" data-testid={`order-amount-${order.id}`}>
+                                {formatCurrency(parseFloat(order.amount?.toString() || '0'))}
+                              </p>
+                              <Badge 
+                                variant={order.orderStatus === "delivered" ? "default" : "secondary"}
+                                data-testid={`order-status-${order.id}`}
+                              >
+                                {order.orderStatus}
+                              </Badge>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-muted-foreground">Customer not found.</p>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
