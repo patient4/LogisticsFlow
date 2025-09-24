@@ -320,9 +320,12 @@ export function OrdersTable() {
   const deleteOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
       const response = await apiRequest('DELETE', `/api/orders/${orderId}`)
-      return response
+      return orderId // Return the deleted order ID for use in onSuccess
     },
-    onSuccess: () => {
+    onSuccess: (deletedOrderId) => {
+      // Remove deleted order from selected orders
+      setSelectedOrders(prev => prev.filter(id => id !== deletedOrderId))
+      
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/metrics'] })
       toast({
