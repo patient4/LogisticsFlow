@@ -108,10 +108,14 @@ export function CreateOrderModal({ trigger }: CreateOrderModalProps) {
               </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="pickup-location">Pickup Location</Label>
                   <Input id="pickup-location" data-testid="input-pickup-location" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pickup-po-number">Pickup PO Number</Label>
+                  <Input id="pickup-po-number" placeholder="PO-12345" data-testid="input-pickup-po-number" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reel">Reel</Label>
@@ -200,6 +204,16 @@ export function CreateOrderModal({ trigger }: CreateOrderModalProps) {
                     type="time"
                     data-testid="input-drop-time" 
                   />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="delivery-address">Delivery Address</Label>
+                  <Input id="delivery-address" data-testid="input-delivery-address" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="delivery-po-number">Delivery PO Number</Label>
+                  <Input id="delivery-po-number" placeholder="PO-67890" data-testid="input-delivery-po-number" />
                 </div>
               </div>
             </CardContent>
