@@ -656,6 +656,16 @@ export function OrdersTable() {
 
         {/* Action buttons */}
         <div className="flex gap-2">
+          {selectedOrders.length > 0 && (
+            <Button 
+              variant="outline" 
+              onClick={handlePreviewInvoice}
+              data-testid="button-preview-invoice"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              Preview Invoice
+            </Button>
+          )}
           <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-create-order">
@@ -818,17 +828,6 @@ export function OrdersTable() {
           <span className="text-sm text-muted-foreground">
             {selectedOrders.length} order{selectedOrders.length > 1 ? 's' : ''} selected
           </span>
-          <div className="flex gap-2">
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={handlePreviewInvoice}
-              data-testid="button-preview-invoice"
-            >
-              <Eye className="w-4 h-4 mr-2" />
-              Preview Invoice
-            </Button>
-          </div>
         </div>
       )}
       
