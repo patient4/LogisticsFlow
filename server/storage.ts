@@ -1,12 +1,13 @@
 // From blueprint:javascript_database integration
 import { 
-  users, customers, carriers, drivers, orders, orderTrackingEvents,
+  users, customers, carriers, drivers, orders, orderTrackingEvents, dispatches,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
   type Carrier, type InsertCarrier,
   type Driver, type InsertDriver,
   type Order, type InsertOrder,
-  type OrderTrackingEvent, type InsertOrderTrackingEvent
+  type OrderTrackingEvent, type InsertOrderTrackingEvent,
+  type Dispatch, type InsertDispatch
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, like, and, or, count, sql } from "drizzle-orm";
@@ -56,6 +57,12 @@ export interface IStorage {
   // Order tracking
   addOrderTrackingEvent(event: InsertOrderTrackingEvent): Promise<OrderTrackingEvent>;
   getOrderTrackingEvents(orderId: string): Promise<OrderTrackingEvent[]>;
+  
+  // Dispatch management
+  createDispatch(dispatch: InsertDispatch): Promise<Dispatch>;
+  getDispatch(id: string): Promise<Dispatch | undefined>;
+  getDispatches(limit?: number, offset?: number): Promise<Dispatch[]>;
+  getDispatchesByOrder(orderId: string): Promise<Dispatch[]>;
   
   // Dashboard metrics
   getDashboardMetrics(): Promise<{
@@ -331,6 +338,36 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(orderTrackingEvents)
       .where(eq(orderTrackingEvents.orderId, orderId))
       .orderBy(desc(orderTrackingEvents.createdAt));
+  }
+
+  // Dispatch methods
+  async createDispatch(dispatch: InsertDispatch): Promise<Dispatch> {
+    // Generate dispatch number
+    const timestamp = Date.now();
+    const dispatchNumber = `DISP-${timestamp}`;
+    
+    const [newDispatch] = await db.insert(dispatches)
+      .values({ ...dispatch, dispatchNumber })
+      .returning();
+    return newDispatch;
+  }
+
+  async getDispatch(id: string): Promise<Dispatch | undefined> {
+    const [dispatch] = await db.select().from(dispatches).where(eq(dispatches.id, id));
+    return dispatch || undefined;
+  }
+
+  async getDispatches(limit: number = 100, offset: number = 0): Promise<Dispatch[]> {
+    return db.select().from(dispatches)
+      .orderBy(desc(dispatches.dispatchedAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getDispatchesByOrder(orderId: string): Promise<Dispatch[]> {
+    return db.select().from(dispatches)
+      .where(eq(dispatches.orderId, orderId))
+      .orderBy(desc(dispatches.dispatchedAt));
   }
 
   // Dashboard metrics

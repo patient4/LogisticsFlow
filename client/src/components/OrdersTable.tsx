@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
-import { Edit, Trash2, Search, Filter, Download, Printer, Plus, CalendarIcon, Eye, MapPin, Route, Save, RefreshCw, ExternalLink } from "lucide-react"
+import { Edit, Trash2, Search, Filter, Download, Printer, Plus, CalendarIcon, Eye, MapPin, Route, Save, RefreshCw, ExternalLink, Truck } from "lucide-react"
 import { useLocation } from "wouter"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useForm, useFieldArray } from "react-hook-form"
@@ -89,7 +89,7 @@ interface Order {
   dimensions?: string
   amount: string
   gstPercentage?: string
-  orderStatus: "pending" | "processing" | "shipped" | "in_transit" | "delivered" | "cancelled"
+  orderStatus: "pending" | "processing" | "shipped" | "in_transit" | "delivered" | "cancelled" | "dispatched"
   paymentStatus: "pending" | "paid" | "processing" | "failed"
   notes?: string
   createdAt: string
@@ -105,6 +105,16 @@ const locationSchema = z.object({
   date: z.string().min(1, "Date is required"),
   time: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
+})
+
+// Dispatch creation schema
+const createDispatchSchema = z.object({
+  orderId: z.string().min(1, "Order ID is required"),
+  carrierId: z.string().min(1, "Carrier is required"),
+  rate: z.string().min(1, "Rate is required"),
+  currency: z.enum(["USD", "CAD", "EUR", "GBP"]),
+  poNumber: z.string().optional().or(z.literal("")),
+  carrierMobile: z.string().min(1, "Carrier mobile is required"),
 })
 
 // Form validation schema
@@ -147,6 +157,8 @@ export function OrdersTable() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false)
+  const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false)
+  const [selectedOrderForDispatch, setSelectedOrderForDispatch] = useState<Order | null>(null)
   
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -166,7 +178,7 @@ export function OrdersTable() {
     },
   })
 
-  // Fetch carriers for dropdown
+  // Fetch carriers for dispatch dropdown
   const { data: carriers = [] } = useQuery<Carrier[]>({
     queryKey: ['/api/carriers'],
     queryFn: async () => {
@@ -179,6 +191,7 @@ export function OrdersTable() {
       return response.json()
     },
   })
+
 
   // Fetch orders with search and filter
   const { data: orders = [], isLoading, error } = useQuery<Order[]>({
@@ -196,6 +209,45 @@ export function OrdersTable() {
       if (!response.ok) throw new Error('Failed to fetch orders')
       return response.json()
     },
+  })
+
+  // Dispatch form setup
+  const dispatchForm = useForm<z.infer<typeof createDispatchSchema>>({
+    resolver: zodResolver(createDispatchSchema),
+    defaultValues: {
+      orderId: "",
+      carrierId: "",
+      rate: "",
+      currency: "USD",
+      poNumber: "",
+      carrierMobile: "",
+    }
+  })
+
+  // Create dispatch mutation
+  const createDispatchMutation = useMutation({
+    mutationFn: async (dispatchData: z.infer<typeof createDispatchSchema>) => {
+      const response = await apiRequest('POST', '/api/dispatches', dispatchData)
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/dispatches'] })
+      toast({
+        title: "Dispatch Created",
+        description: "Order has been successfully dispatched.",
+      })
+      setIsDispatchModalOpen(false)
+      setSelectedOrderForDispatch(null)
+      dispatchForm.reset()
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create dispatch",
+        variant: "destructive",
+      })
+    }
   })
 
   // Order status update mutation
@@ -503,6 +555,14 @@ export function OrdersTable() {
   // Handle tracking navigation - navigate to tracking page with order ID
   const handleOpenTracking = (order: Order) => {
     setLocation(`/tracking/${order.id}`)
+  }
+
+  // Handle dispatch creation - open dispatch modal for selected order
+  const handleDispatchOrder = (order: Order) => {
+    setSelectedOrderForDispatch(order)
+    // Set orderId in form when opening dispatch modal
+    dispatchForm.setValue('orderId', order.id)
+    setIsDispatchModalOpen(true)
   }
 
   // Download Invoice functionality (now called from preview modal)
@@ -893,6 +953,16 @@ export function OrdersTable() {
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">
                         <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDispatchOrder(order)}
+                          data-testid={`button-dispatch-${order.id}`}
+                          disabled={order.orderStatus === 'dispatched' || order.orderStatus === 'delivered' || order.orderStatus === 'cancelled'}
+                        >
+                          <Truck className="w-4 h-4 mr-2" />
+                          Dispatch
+                        </Button>
+                        <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => setEditingOrder(order)}
@@ -991,6 +1061,203 @@ export function OrdersTable() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dispatch Creation Modal */}
+      <Dialog open={isDispatchModalOpen} onOpenChange={setIsDispatchModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Create Dispatch for Order {selectedOrderForDispatch?.orderNumber}</DialogTitle>
+          </DialogHeader>
+          <Form {...dispatchForm}>
+            <form onSubmit={dispatchForm.handleSubmit((data) => {
+              if (selectedOrderForDispatch) {
+                createDispatchMutation.mutate({ ...data, orderId: selectedOrderForDispatch.id })
+              }
+            })} className="space-y-4">
+              
+              {/* Carrier Selection */}
+              <FormField
+                control={dispatchForm.control}
+                name="carrierId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Select Carrier</FormLabel>
+                    <Select onValueChange={(value) => {
+                      field.onChange(value)
+                      // Auto-populate carrier mobile when carrier is selected
+                      const selectedCarrier = carriers.find(c => c.id === value)
+                      if (selectedCarrier) {
+                        dispatchForm.setValue('carrierMobile', selectedCarrier.mobile)
+                        // Set default rate if available
+                        if (selectedCarrier.ratePerMile) {
+                          dispatchForm.setValue('rate', selectedCarrier.ratePerMile.toString())
+                        }
+                        dispatchForm.setValue('currency', selectedCarrier.defaultCurrency)
+                      }
+                    }} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-carrier">
+                          <SelectValue placeholder="Choose a carrier" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {carriers.map((carrier) => (
+                          <SelectItem key={carrier.id} value={carrier.id}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{carrier.name}</span>
+                              <span className="text-sm text-muted-foreground">{carrier.code} • {carrier.contactPerson}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Carrier Details Display */}
+              {dispatchForm.watch('carrierId') && (
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <h4 className="font-medium mb-2">Carrier Details</h4>
+                  {(() => {
+                    const selectedCarrier = carriers.find(c => c.id === dispatchForm.watch('carrierId'))
+                    if (!selectedCarrier) return null
+                    return (
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Contact Person:</span>
+                          <div>{selectedCarrier.contactPerson}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Email:</span>
+                          <div>{selectedCarrier.contactEmail}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Phone:</span>
+                          <div>{selectedCarrier.contactPhone}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Default Rate:</span>
+                          <div>{selectedCarrier.ratePerMile ? `$${selectedCarrier.ratePerMile}/mile` : 'Not set'}</div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Rate */}
+                <FormField
+                  control={dispatchForm.control}
+                  name="rate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rate</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number"
+                          step="0.01"
+                          placeholder="2.50" 
+                          {...field} 
+                          data-testid="input-dispatch-rate"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Currency */}
+                <FormField
+                  control={dispatchForm.control}
+                  name="currency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Currency</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-dispatch-currency">
+                            <SelectValue placeholder="Select currency" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="CAD">CAD</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="GBP">GBP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Carrier Mobile (Editable) */}
+              <FormField
+                control={dispatchForm.control}
+                name="carrierMobile"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Carrier Mobile (Editable)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="+1 (555) 987-6543" 
+                        {...field} 
+                        data-testid="input-carrier-mobile"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* PO Number (Optional) */}
+              <FormField
+                control={dispatchForm.control}
+                name="poNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>PO Number (Optional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="PO-2024-001" 
+                        {...field} 
+                        data-testid="input-po-number"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsDispatchModalOpen(false)
+                    setSelectedOrderForDispatch(null)
+                    dispatchForm.reset()
+                  }}
+                  data-testid="button-cancel-dispatch"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createDispatchMutation.isPending}
+                  data-testid="button-create-dispatch"
+                >
+                  {createDispatchMutation.isPending ? "Creating..." : "Create Dispatch"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

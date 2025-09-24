@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
   insertUserSchema, insertCustomerSchema, insertCarrierSchema, 
-  insertDriverSchema, insertOrderSchema, insertOrderTrackingEventSchema 
+  insertDriverSchema, insertOrderSchema, insertOrderTrackingEventSchema,
+  insertDispatchSchema 
 } from "@shared/schema";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
@@ -376,6 +377,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Assign driver error:', error);
       res.status(500).json({ error: "Failed to assign driver" });
+    }
+  });
+
+  // Create dispatch route
+  app.post("/api/dispatches", authenticateToken, async (req, res) => {
+    try {
+      // Parse and validate dispatch data
+      const dispatchData = insertDispatchSchema.parse(req.body);
+      
+      // Verify order exists and is not already dispatched
+      const existingOrder = await storage.getOrder(dispatchData.orderId);
+      if (!existingOrder) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      if (existingOrder.orderStatus === "dispatched") {
+        return res.status(400).json({ error: "Order is already dispatched" });
+      }
+      
+      // Verify carrier exists
+      const carrier = await storage.getCarrier(dispatchData.carrierId);
+      if (!carrier) {
+        return res.status(404).json({ error: "Carrier not found" });
+      }
+      
+      // Create dispatch
+      const dispatch = await storage.createDispatch(dispatchData);
+      
+      // Update order status to dispatched
+      await storage.updateOrder(dispatchData.orderId, { orderStatus: "dispatched" });
+      
+      // Add tracking event
+      await storage.addOrderTrackingEvent({
+        orderId: dispatchData.orderId,
+        status: "dispatched",
+        description: `Order dispatched to ${carrier.name} - Rate: ${dispatchData.currency} ${dispatchData.rate}${dispatchData.poNumber ? `, PO: ${dispatchData.poNumber}` : ''}`,
+      });
+      
+      res.status(201).json(dispatch);
+    } catch (error: any) {
+      console.error('Create dispatch error:', error);
+      
+      // Handle Zod validation errors
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          error: "Invalid dispatch data", 
+          details: error.errors 
+        });
+      }
+      
+      res.status(500).json({ error: "Failed to create dispatch" });
     }
   });
 
