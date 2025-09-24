@@ -100,7 +100,8 @@ export default function Customers() {
         : '/api/customers'
       const response = await fetch(url)
       if (!response.ok) throw new Error('Failed to fetch customers')
-      return response.json() as Customer[]
+      const data = await response.json()
+      return data as Customer[]
     }
   })
 
@@ -110,7 +111,8 @@ export default function Customers() {
     queryFn: async () => {
       const response = await fetch('/api/orders?limit=1000') // Get enough orders for calculation
       if (!response.ok) throw new Error('Failed to fetch orders')
-      return response.json() as (Order & { customer: Customer })[]
+      const data = await response.json()
+      return data as (Order & { customer: Customer })[]
     }
   })
 
@@ -153,7 +155,8 @@ export default function Customers() {
       if (!selectedCustomerId) return null
       const response = await fetch(`/api/customers/${selectedCustomerId}`)
       if (!response.ok) throw new Error('Failed to fetch customer details')
-      return response.json() as Customer
+      const data = await response.json()
+      return data as Customer
     },
     enabled: !!selectedCustomerId && isProfileDrawerOpen
   })

@@ -45,8 +45,10 @@ export function TopNavigation() {
           <Button variant="ghost" size="icon" className="text-sidebar-foreground" data-testid="button-notifications">
             <Bell className="w-5 h-5" />
           </Button>
-          <Button variant="ghost" size="icon" className="text-sidebar-foreground" data-testid="button-profile">
-            <User className="w-5 h-5" />
+          <Button variant="ghost" size="icon" className="text-sidebar-foreground" data-testid="button-profile" asChild>
+            <Link href="/profile">
+              <User className="w-5 h-5" />
+            </Link>
           </Button>
           <Button 
             variant="ghost" 
