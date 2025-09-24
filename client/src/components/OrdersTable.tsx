@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 
 interface Customer {
   id: string
@@ -275,118 +277,191 @@ export function OrdersTable() {
     }
   }
 
-  // Export to CSV
-  const handleExport = () => {
-    if (filteredOrders.length === 0) {
+
+  // Download Invoice functionality
+  const handleDownloadInvoice = async () => {
+    if (selectedOrders.length === 0) {
       toast({
-        title: "No data",
-        description: "No orders to export",
+        title: "No orders selected",
+        description: "Please select orders to generate invoice",
         variant: "destructive",
       })
       return
     }
 
-    const csvData = filteredOrders.map(order => ({
-      'Order Number': order.orderNumber,
-      'Customer': order.customer.name,
-      'Pickup Address': order.pickupAddress,
-      'Delivery Address': order.deliveryAddress,
-      'Amount': `$${parseFloat(order.amount).toFixed(2)}`,
-      'Status': order.orderStatus,
-      'Payment Status': order.paymentStatus,
-      'Created': format(new Date(order.createdAt), 'yyyy-MM-dd'),
-    }))
+    // Get selected order data
+    const selectedOrderData = orders?.filter(order => selectedOrders.includes(order.id)) || []
+    
+    if (selectedOrderData.length === 0) {
+      toast({
+        title: "Error",
+        description: "Unable to find selected order data",
+        variant: "destructive",
+      })
+      return
+    }
 
-    const csvContent = [
-      Object.keys(csvData[0]).join(','),
-      ...csvData.map(row => Object.values(row).map(value => `"${value}"`).join(','))
-    ].join('\n')
+    try {
+      // Create invoice HTML content
+      const invoiceHTML = generateInvoiceHTML(selectedOrderData)
+      
+      // Create a temporary div to render the invoice
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = invoiceHTML
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
+      tempDiv.style.top = '-9999px'
+      document.body.appendChild(tempDiv)
 
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `orders-${format(new Date(), 'yyyy-MM-dd')}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+      // Capture the HTML as canvas using html2canvas
+      const canvas = await html2canvas(tempDiv, {
+        width: 794, // A4 width in pixels at 96 DPI
+        height: 1123, // A4 height in pixels at 96 DPI
+        scale: 2, // Higher quality
+      })
 
-    toast({
-      title: "Success",
-      description: "Orders exported to CSV successfully",
-    })
+      // Remove the temporary div
+      document.body.removeChild(tempDiv)
+
+      // Create PDF using jsPDF
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const imgData = canvas.toDataURL('image/png')
+      const imgWidth = 210 // A4 width in mm
+      const pageHeight = 295 // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let heightLeft = imgHeight
+
+      let position = 0
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+
+      // Add new pages if content exceeds one page
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+
+      // Generate filename
+      const timestamp = format(new Date(), 'yyyy-MM-dd')
+      const filename = selectedOrderData.length === 1 
+        ? `invoice-${selectedOrderData[0].orderNumber}-${timestamp}.pdf`
+        : `invoices-${selectedOrderData.length}-orders-${timestamp}.pdf`
+
+      // Download the PDF
+      pdf.save(filename)
+
+      toast({
+        title: "Success",
+        description: `Invoice${selectedOrderData.length > 1 ? 's' : ''} downloaded successfully`,
+      })
+    } catch (error) {
+      console.error('Error generating invoice:', error)
+      toast({
+        title: "Error",
+        description: "Failed to generate invoice. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
-  // Print functionality
-  const handlePrint = () => {
-    if (filteredOrders.length === 0) {
-      toast({
-        title: "No data",
-        description: "No orders to print",
-        variant: "destructive",
-      })
-      return
-    }
+  // Generate invoice HTML template
+  const generateInvoiceHTML = (orders: Order[]) => {
+    const total = orders.reduce((sum, order) => sum + parseFloat(order.amount), 0)
+    
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 794px; margin: 0 auto; padding: 40px; background: white;">
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #8B5CF6; padding-bottom: 20px;">
+          <h1 style="color: #8B5CF6; font-size: 28px; margin: 0;">LOGISTICS INVOICE</h1>
+          <p style="color: #666; margin: 10px 0;">Professional Logistics Services</p>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+          <div>
+            <h3 style="color: #333; border-bottom: 2px solid #8B5CF6; padding-bottom: 5px;">From:</h3>
+            <p style="margin: 10px 0; line-height: 1.5;">
+              <strong>Logistics Company</strong><br>
+              123 Business Street<br>
+              Business City, BC V1A 1A1<br>
+              Phone: (555) 123-4567<br>
+              Email: billing@logistics.com
+            </p>
+          </div>
+          <div style="text-align: right;">
+            <h3 style="color: #333; border-bottom: 2px solid #8B5CF6; padding-bottom: 5px;">Invoice Details:</h3>
+            <p style="margin: 10px 0; line-height: 1.5;">
+              <strong>Date:</strong> ${format(new Date(), 'PPP')}<br>
+              <strong>Invoice #:</strong> INV-${Date.now()}<br>
+              <strong>Orders:</strong> ${orders.length}<br>
+              <strong>Total Amount:</strong> <span style="color: #8B5CF6; font-size: 18px;">$${total.toFixed(2)}</span>
+            </p>
+          </div>
+        </div>
 
-    const printWindow = window.open('', '_blank')
-    if (printWindow) {
-      const printContent = `
-        <html>
-          <head>
-            <title>Orders Report</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-              th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-              th { background-color: #f5f5f5; font-weight: bold; }
-              tr:nth-child(even) { background-color: #f9f9f9; }
-              .header { margin-bottom: 20px; }
-              .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-              .badge.pending { background-color: #fef3c7; color: #92400e; }
-              .badge.processing { background-color: #dbeafe; color: #1e40af; }
-              .badge.shipped { background-color: #d1fae5; color: #065f46; }
-              .badge.delivered { background-color: #dcfce7; color: #166534; }
-              .badge.paid { background-color: #dcfce7; color: #166534; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>Orders Report</h1>
-              <p>Generated on: ${format(new Date(), 'PPP')}</p>
-              <p>Total Orders: ${filteredOrders.length}</p>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Order Number</th>
-                  <th>Customer</th>
-                  <th>Pickup</th>
-                  <th>Delivery</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Payment</th>
+        <div style="margin-bottom: 30px;">
+          <h3 style="color: #333; border-bottom: 2px solid #8B5CF6; padding-bottom: 5px; margin-bottom: 15px;">Order Details:</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <thead>
+              <tr style="background-color: #8B5CF6; color: white;">
+                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Order #</th>
+                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Customer</th>
+                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Pickup</th>
+                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Delivery</th>
+                <th style="padding: 12px; border: 1px solid #ddd; text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${orders.map((order, index) => `
+                <tr style="background-color: ${index % 2 === 0 ? '#f8f9fa' : 'white'};">
+                  <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">${order.orderNumber}</td>
+                  <td style="padding: 12px; border: 1px solid #ddd;">
+                    <strong>${order.customer.name}</strong><br>
+                    <small style="color: #666;">${order.customer.email}</small>
+                  </td>
+                  <td style="padding: 12px; border: 1px solid #ddd; font-size: 14px;">
+                    ${order.pickupAddress}<br>
+                    <small style="color: #666;">Date: ${format(new Date(order.pickupDate), 'PP')}</small>
+                  </td>
+                  <td style="padding: 12px; border: 1px solid #ddd; font-size: 14px;">
+                    ${order.deliveryAddress}<br>
+                    <small style="color: #666;">Date: ${format(new Date(order.deliveryDate), 'PP')}</small>
+                  </td>
+                  <td style="padding: 12px; border: 1px solid #ddd; text-align: right; font-weight: bold; color: #8B5CF6;">
+                    $${parseFloat(order.amount).toFixed(2)}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                ${filteredOrders.map(order => `
-                  <tr>
-                    <td>${order.orderNumber}</td>
-                    <td>${order.customer.name}</td>
-                    <td>${order.pickupAddress}</td>
-                    <td>${order.deliveryAddress}</td>
-                    <td>$${parseFloat(order.amount).toFixed(2)}</td>
-                    <td><span class="badge ${order.orderStatus}">${order.orderStatus}</span></td>
-                    <td><span class="badge ${order.paymentStatus}">${order.paymentStatus}</span></td>
-                  </tr>
-                `).join('')}
-              </tbody>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="border-top: 2px solid #8B5CF6; padding-top: 20px;">
+          <div style="text-align: right; margin-bottom: 20px;">
+            <table style="margin-left: auto;">
+              <tr>
+                <td style="padding: 5px 15px; text-align: right; font-weight: bold;">Subtotal:</td>
+                <td style="padding: 5px 15px; text-align: right;">$${total.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 5px 15px; text-align: right; font-weight: bold;">Tax (GST):</td>
+                <td style="padding: 5px 15px; text-align: right;">$${(total * 0.05).toFixed(2)}</td>
+              </tr>
+              <tr style="border-top: 2px solid #8B5CF6;">
+                <td style="padding: 10px 15px; text-align: right; font-weight: bold; font-size: 18px; color: #8B5CF6;">Total:</td>
+                <td style="padding: 10px 15px; text-align: right; font-weight: bold; font-size: 18px; color: #8B5CF6;">$${(total * 1.05).toFixed(2)}</td>
+              </tr>
             </table>
-          </body>
-        </html>
-      `
-      printWindow.document.write(printContent)
-      printWindow.document.close()
-      printWindow.print()
-    }
+          </div>
+          
+          <div style="text-align: center; color: #666; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+            <p>Thank you for choosing our logistics services!</p>
+            <p>Payment terms: Net 30 days | Questions? Contact us at billing@logistics.com</p>
+          </div>
+        </div>
+      </div>
+    `
   }
 
   // Status badge colors
@@ -483,14 +558,6 @@ export function OrdersTable() {
               />
             </DialogContent>
           </Dialog>
-          <Button variant="outline" onClick={handleExport} data-testid="button-export">
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
-          <Button variant="outline" onClick={handlePrint} data-testid="button-print">
-            <Printer className="w-4 h-4 mr-2" />
-            Print
-          </Button>
         </div>
       </div>
 
@@ -616,13 +683,14 @@ export function OrdersTable() {
             {selectedOrders.length} order{selectedOrders.length > 1 ? 's' : ''} selected
           </span>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" data-testid="button-bulk-export">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={handleDownloadInvoice}
+              data-testid="button-download-invoice"
+            >
               <Download className="w-4 h-4 mr-2" />
-              Export Selected
-            </Button>
-            <Button size="sm" variant="outline" data-testid="button-bulk-print">
-              <Printer className="w-4 h-4 mr-2" />
-              Print Selected
+              Download Invoice
             </Button>
           </div>
         </div>
