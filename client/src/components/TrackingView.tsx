@@ -113,6 +113,14 @@ export function TrackingView({ orderId }: TrackingViewProps) {
     { id: "CL", name: "Chris Lee", initials: "CL", company: "Rapid Haul", status: "delivered" },
   ])
 
+  // TODO: Replace with real customer data - for now use mock data
+  const customerDetails = {
+    name: "Acme Corporation",
+    email: "contact@acmecorp.com", 
+    phone: "+1 (555) 123-4567",
+    address: "456 Business Ave, Commerce City, NY 10001"
+  }
+
   const getStatusVariant = (status: string) => {
     switch (status) {
       case "on the way":
