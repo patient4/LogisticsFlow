@@ -688,6 +688,7 @@ export function OrdersTable() {
                   carriers={carriers}
                   order={editingOrder}
                   onSubmit={(data) => editOrderMutation.mutate({ orderId: editingOrder.id, orderData: data })}
+                  onCancel={() => setEditingOrder(null)}
                   isLoading={editOrderMutation.isPending}
                 />
               )}
@@ -1495,10 +1496,11 @@ interface EditOrderFormProps {
   carriers: Carrier[]
   order: Order
   onSubmit: (data: z.infer<typeof createOrderSchema>) => void
+  onCancel: () => void
   isLoading: boolean
 }
 
-function EditOrderForm({ customers, carriers, order, onSubmit, isLoading }: EditOrderFormProps) {
+function EditOrderForm({ customers, carriers, order, onSubmit, onCancel, isLoading }: EditOrderFormProps) {
   const form = useForm<z.infer<typeof createOrderSchema>>({
     resolver: zodResolver(createOrderSchema),
     defaultValues: {
@@ -2078,7 +2080,7 @@ function EditOrderForm({ customers, carriers, order, onSubmit, isLoading }: Edit
           <Button
             type="button"
             variant="outline"
-            onClick={() => setEditingOrder(null)}
+            onClick={onCancel}
             disabled={isLoading}
             data-testid="edit-button-cancel"
           >
