@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Edit, Trash2, Search, Filter, Download, Printer, Plus, CalendarIcon } from "lucide-react"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { useForm } from "react-hook-form"
+import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import {
@@ -97,16 +97,28 @@ interface Order {
   driver?: Driver
 }
 
+// Location schema for array items
+const locationSchema = z.object({
+  address: z.string().min(1, "Address is required"),
+  date: z.string().min(1, "Date is required"),
+  time: z.string().optional().or(z.literal("")),
+  notes: z.string().optional().or(z.literal("")),
+})
+
 // Form validation schema
 const createOrderSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
   carrierId: z.string().optional().or(z.literal("")),
+  // Keep single fields for backward compatibility and default behavior
   pickupAddress: z.string().min(1, "Pickup address is required"),
   pickupDate: z.string().min(1, "Pickup date is required"),
   pickupTime: z.string().optional().or(z.literal("")),
   deliveryAddress: z.string().min(1, "Delivery address is required"),
   deliveryDate: z.string().min(1, "Delivery date is required"),
   deliveryTime: z.string().optional().or(z.literal("")),
+  // Add arrays for multiple locations
+  pickupLocations: z.array(locationSchema).optional().default([]),
+  deliveryLocations: z.array(locationSchema).optional().default([]),
   numberOfPallets: z.preprocess(
     (val) => val === "" ? 1 : Number(val),
     z.number().min(0, "Number of pallets must be 0 or greater")
@@ -196,6 +208,23 @@ export function OrdersTable() {
         amount: orderData.amount.toString(),
         gstPercentage: orderData.gstPercentage.toString(),
         numberOfPallets: parseInt(orderData.numberOfPallets.toString()),
+        // Transform location arrays for database storage
+        pickupLocations: orderData.pickupLocations.length > 0 
+          ? orderData.pickupLocations.map(location => JSON.stringify({
+              address: location.address,
+              date: location.date,
+              time: location.time || null,
+              notes: location.notes || null,
+            }))
+          : null,
+        deliveryLocations: orderData.deliveryLocations.length > 0 
+          ? orderData.deliveryLocations.map(location => JSON.stringify({
+              address: location.address,
+              date: location.date,
+              time: location.time || null,
+              notes: location.notes || null,
+            }))
+          : null,
       }
       
       console.log('Transformed data for API:', transformedData)
@@ -719,6 +748,8 @@ function CreateOrderForm({ customers, carriers, onSubmit, isLoading }: CreateOrd
       deliveryAddress: "",
       deliveryDate: "",
       deliveryTime: "",
+      pickupLocations: [],
+      deliveryLocations: [],
       numberOfPallets: 1,
       weight: "",
       dimensions: "",
@@ -726,6 +757,25 @@ function CreateOrderForm({ customers, carriers, onSubmit, isLoading }: CreateOrd
       gstPercentage: 0,
       notes: "",
     },
+  })
+
+  // Field arrays for multiple pickup and delivery locations
+  const {
+    fields: pickupFields,
+    append: appendPickup,
+    remove: removePickup,
+  } = useFieldArray({
+    control: form.control,
+    name: "pickupLocations",
+  })
+
+  const {
+    fields: deliveryFields,
+    append: appendDelivery,
+    remove: removeDelivery,
+  } = useFieldArray({
+    control: form.control,
+    name: "deliveryLocations",
   })
 
   const handleSubmit = (data: z.infer<typeof createOrderSchema>) => {
@@ -926,6 +976,194 @@ function CreateOrderForm({ customers, carriers, onSubmit, isLoading }: CreateOrd
               </FormItem>
             )}
           />
+        </div>
+
+        {/* Additional Pickup Locations */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-sm">Additional Pickup Locations</h4>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => appendPickup({ address: "", date: "", time: "", notes: "" })}
+              data-testid="button-add-pickup"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Pickup
+            </Button>
+          </div>
+
+          {pickupFields.map((field, index) => (
+            <Card key={field.id} className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h5 className="text-sm font-medium">Pickup Location {index + 1}</h5>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removePickup(index)}
+                  data-testid={`button-remove-pickup-${index}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <FormField
+                    control={form.control}
+                    name={`pickupLocations.${index}.address`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter pickup address" {...field} data-testid={`input-pickup-address-${index}`} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name={`pickupLocations.${index}.date`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid={`input-pickup-date-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <FormField
+                  control={form.control}
+                  name={`pickupLocations.${index}.time`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} data-testid={`input-pickup-time-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`pickupLocations.${index}.notes`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Optional notes" {...field} data-testid={`input-pickup-notes-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Additional Delivery Locations */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-sm">Additional Delivery Locations</h4>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => appendDelivery({ address: "", date: "", time: "", notes: "" })}
+              data-testid="button-add-delivery"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Delivery
+            </Button>
+          </div>
+
+          {deliveryFields.map((field, index) => (
+            <Card key={field.id} className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h5 className="text-sm font-medium">Delivery Location {index + 1}</h5>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removeDelivery(index)}
+                  data-testid={`button-remove-delivery-${index}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <FormField
+                    control={form.control}
+                    name={`deliveryLocations.${index}.address`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter delivery address" {...field} data-testid={`input-delivery-address-${index}`} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name={`deliveryLocations.${index}.date`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid={`input-delivery-date-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <FormField
+                  control={form.control}
+                  name={`deliveryLocations.${index}.time`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} data-testid={`input-delivery-time-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`deliveryLocations.${index}.notes`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Optional notes" {...field} data-testid={`input-delivery-notes-${index}`} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </Card>
+          ))}
         </div>
 
         {/* Package Details */}

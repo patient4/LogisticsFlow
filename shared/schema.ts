@@ -64,15 +64,21 @@ export const orders = pgTable("orders", {
   carrierId: varchar("carrier_id").references(() => carriers.id),
   driverId: varchar("driver_id").references(() => drivers.id),
   
-  // Pickup information
+  // Pickup information (single - for backward compatibility)
   pickupAddress: text("pickup_address").notNull(),
   pickupDate: timestamp("pickup_date").notNull(),
   pickupTime: text("pickup_time"),
   
-  // Delivery information
+  // Multiple pickup locations (array of JSON objects)
+  pickupLocations: text("pickup_locations").array(),
+  
+  // Delivery information (single - for backward compatibility)
   deliveryAddress: text("delivery_address").notNull(),
   deliveryDate: timestamp("delivery_date").notNull(),
   deliveryTime: text("delivery_time"),
+  
+  // Multiple delivery locations (array of JSON objects)
+  deliveryLocations: text("delivery_locations").array(),
   
   // Package details
   numberOfPallets: integer("number_of_pallets").notNull().default(0),
