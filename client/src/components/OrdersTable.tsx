@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Edit, Trash2, Search, Filter, Download, Printer, Plus, CalendarIcon } from "lucide-react"
+import { Edit, Trash2, Search, Filter, Download, Printer, Plus, CalendarIcon, Eye } from "lucide-react"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -144,6 +144,7 @@ export function OrdersTable() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [editingOrder, setEditingOrder] = useState<Order | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false)
   
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -374,8 +375,8 @@ export function OrdersTable() {
   }
 
 
-  // Download Invoice functionality
-  const handleDownloadInvoice = async () => {
+  // Show Invoice Preview functionality
+  const handlePreviewInvoice = () => {
     if (selectedOrders.length === 0) {
       toast({
         title: "No orders selected",
@@ -385,6 +386,23 @@ export function OrdersTable() {
       return
     }
 
+    // Get selected order data
+    const selectedOrderData = orders?.filter(order => selectedOrders.includes(order.id)) || []
+    
+    if (selectedOrderData.length === 0) {
+      toast({
+        title: "Error",
+        description: "Unable to find selected order data",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsInvoicePreviewOpen(true)
+  }
+
+  // Download Invoice functionality (now called from preview modal)
+  const handleDownloadInvoice = async () => {
     // Get selected order data
     const selectedOrderData = orders?.filter(order => selectedOrders.includes(order.id)) || []
     
@@ -448,6 +466,9 @@ export function OrdersTable() {
 
       // Download the PDF
       pdf.save(filename)
+
+      // Close the preview modal
+      setIsInvoicePreviewOpen(false)
 
       toast({
         title: "Success",
@@ -800,15 +821,62 @@ export function OrdersTable() {
             <Button 
               size="sm" 
               variant="outline" 
-              onClick={handleDownloadInvoice}
-              data-testid="button-download-invoice"
+              onClick={handlePreviewInvoice}
+              data-testid="button-preview-invoice"
             >
-              <Download className="w-4 h-4 mr-2" />
-              Download Invoice
+              <Eye className="w-4 h-4 mr-2" />
+              Preview Invoice
             </Button>
           </div>
         </div>
       )}
+      
+      {/* Invoice Preview Modal */}
+      <Dialog open={isInvoicePreviewOpen} onOpenChange={setIsInvoicePreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Invoice Preview</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col h-[calc(90vh-120px)]">
+            {/* Invoice Preview Content */}
+            <div 
+              className="flex-1 overflow-auto border rounded-lg p-1"
+              style={{ backgroundColor: '#f8f9fa' }}
+            >
+              <div 
+                dangerouslySetInnerHTML={{ 
+                  __html: orders && selectedOrders.length > 0 
+                    ? generateInvoiceHTML(orders.filter(order => selectedOrders.includes(order.id)))
+                    : ""
+                }}
+                style={{ 
+                  transform: 'scale(0.75)', 
+                  transformOrigin: 'top left',
+                  width: '133%',
+                  height: '133%'
+                }}
+              />
+            </div>
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setIsInvoicePreviewOpen(false)}
+                data-testid="button-close-preview"
+              >
+                Close
+              </Button>
+              <Button
+                onClick={handleDownloadInvoice}
+                data-testid="button-download-from-preview"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download PDF
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
