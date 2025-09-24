@@ -90,7 +90,7 @@ export function TrackingView() {
                 placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-9"
                 data-testid="input-driver-search"
               />
             </div>
