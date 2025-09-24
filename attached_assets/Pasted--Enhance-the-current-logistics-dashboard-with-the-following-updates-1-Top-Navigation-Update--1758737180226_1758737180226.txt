@@ -1,0 +1,65 @@
+
+Enhance the current logistics dashboard with the following updates:
+
+⸻
+
+1. Top Navigation Update
+	•	Add Dispatch as a new menu item in the top bar (next to Orders, Tracking, Customers, Carriers).
+	•	Clicking Dispatch opens the Dispatch List Page.
+
+⸻
+
+2. Dispatch List Page
+	•	UI style should be identical to Orders page (cards on top + table below).
+	•	Table Columns:
+	•	Dispatch ID
+	•	Order Number
+	•	Customer
+	•	Carrier Name
+	•	Driver Info (Name, Mobile)
+	•	Pickup
+	•	Delivery
+	•	Rate & Currency
+	•	Status
+	•	Actions (Preview Dispatch PDF, Update, Delete).
+	•	Actions:
+	•	Preview Dispatch PDF → Generates a downloadable PDF showing:
+	•	Order details (order number, pickup, delivery, PO number).
+	•	Carrier details (name, contact, mobile).
+	•	Driver details.
+	•	Rate + Currency.
+	•	Dispatch Date & Status.
+	•	Update Dispatch → Opens form to modify carrier, driver, status, or rate.
+
+⸻
+
+3. Carrier Integration
+	•	When creating a Dispatch from Orders:
+	•	Select Carrier dropdown pulls from Carriers table.
+	•	Auto-populate carrier details (name, mobile, email, rate, currency).
+	•	Editable fields if needed.
+	•	Once created, dispatch is automatically linked to that order and appears in Dispatch List.
+
+⸻
+
+4. Tracking Page Redesign
+	•	Replace the current “driver card list” UI with a table view similar to Orders/Dispatch for consistency.
+	•	Table Columns:
+	•	Order Number
+	•	Customer
+	•	Carrier / Driver
+	•	Pickup
+	•	Delivery
+	•	Current Status (badge with Pending, Heading to Pickup, At Pickup, In Transit, At Delivery, Delivered).
+	•	ETA
+	•	Actions (Update Status, View Route).
+	•	Update Status → Dropdown inline in the table.
+	•	View Route → Opens modal map (pickup → delivery route with live status marker).
+
+⸻
+
+5. UI Consistency & Workflow
+	•	Orders Page → Dispatch button (to create dispatch).
+	•	Dispatch Page → List of all dispatches, with ability to preview PDF.
+	•	Tracking Page → Unified table for tracking all dispatched orders.
+	•	Status updates from Tracking Page should sync across Orders + Dispatch instantly

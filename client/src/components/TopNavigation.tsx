@@ -7,6 +7,7 @@ import { Link, useLocation } from "wouter"
 
 const navItems = [
   { label: "Orders", url: "/", testId: "nav-tab-orders" },
+  { label: "Dispatch", url: "/dispatches", testId: "nav-tab-dispatches" },
   { label: "Tracking", url: "/tracking", testId: "nav-tab-tracking" },
   { label: "Customers", url: "/customers", testId: "nav-tab-customers" },
   { label: "Carriers", url: "/carriers", testId: "nav-tab-carriers" },

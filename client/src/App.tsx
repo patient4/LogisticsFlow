@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { TopNavigation } from "@/components/TopNavigation";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Orders from "@/pages/Orders";
+import Dispatches from "@/pages/Dispatches";
 import Tracking from "@/pages/Tracking";
 import Customers from "@/pages/Customers";
 import Carriers from "@/pages/Carriers";
@@ -18,6 +19,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Orders} />
+      <Route path="/dispatches" component={Dispatches} />
       <Route path="/tracking/:orderId?" component={Tracking} />
       <Route path="/customers" component={Customers} />
       <Route path="/carriers" component={Carriers} />
