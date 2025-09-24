@@ -113,9 +113,11 @@ const createOrderSchema = z.object({
   pickupAddress: z.string().min(1, "Pickup address is required"),
   pickupDate: z.string().min(1, "Pickup date is required"),
   pickupTime: z.string().optional().or(z.literal("")),
+  pickupPONumber: z.string().optional().or(z.literal("")),
   deliveryAddress: z.string().min(1, "Delivery address is required"),
   deliveryDate: z.string().min(1, "Delivery date is required"),
   deliveryTime: z.string().optional().or(z.literal("")),
+  deliveryPONumber: z.string().optional().or(z.literal("")),
   // Add arrays for multiple locations
   pickupLocations: z.array(locationSchema).optional().default([]),
   deliveryLocations: z.array(locationSchema).optional().default([]),
@@ -828,9 +830,11 @@ function CreateOrderForm({ customers, carriers, onSubmit, isLoading }: CreateOrd
       pickupAddress: "",
       pickupDate: "",
       pickupTime: "",
+      pickupPONumber: "",
       deliveryAddress: "",
       deliveryDate: "",
       deliveryTime: "",
+      deliveryPONumber: "",
       pickupLocations: [],
       deliveryLocations: [],
       numberOfPallets: 1,
@@ -870,7 +874,9 @@ function CreateOrderForm({ customers, carriers, onSubmit, isLoading }: CreateOrd
       ...data,
       carrierId: data.carrierId === "" ? undefined : data.carrierId,
       pickupTime: data.pickupTime === "" ? undefined : data.pickupTime,
+      pickupPONumber: data.pickupPONumber === "" ? undefined : data.pickupPONumber,
       deliveryTime: data.deliveryTime === "" ? undefined : data.deliveryTime,
+      deliveryPONumber: data.deliveryPONumber === "" ? undefined : data.deliveryPONumber,
       weight: data.weight === "" ? undefined : data.weight,
       dimensions: data.dimensions === "" ? undefined : data.dimensions,
       notes: data.notes === "" ? undefined : data.notes,
@@ -1001,6 +1007,19 @@ function CreateOrderForm({ customers, carriers, onSubmit, isLoading }: CreateOrd
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="pickupPONumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Pickup PO Number</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter pickup PO number (optional)" {...field} data-testid="input-pickup-po-number" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         {/* Delivery Information */}
@@ -1054,6 +1073,19 @@ function CreateOrderForm({ customers, carriers, onSubmit, isLoading }: CreateOrd
                 <FormLabel>Delivery Time</FormLabel>
                 <FormControl>
                   <Input type="time" {...field} data-testid="input-delivery-time" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="deliveryPONumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Delivery PO Number</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter delivery PO number (optional)" {...field} data-testid="input-delivery-po-number" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -1407,9 +1439,11 @@ function EditOrderForm({ customers, carriers, order, onSubmit, isLoading }: Edit
       pickupAddress: order.pickupAddress,
       pickupDate: order.pickupDate.split('T')[0], // Convert ISO date to YYYY-MM-DD
       pickupTime: order.pickupTime || "",
+      pickupPONumber: (order as any).pickupPONumber || "",
       deliveryAddress: order.deliveryAddress,
       deliveryDate: order.deliveryDate.split('T')[0], // Convert ISO date to YYYY-MM-DD  
       deliveryTime: order.deliveryTime || "",
+      deliveryPONumber: (order as any).deliveryPONumber || "",
       pickupLocations: [], // TODO: Parse JSON from database if exists
       deliveryLocations: [], // TODO: Parse JSON from database if exists
       numberOfPallets: order.numberOfPallets,
@@ -1449,7 +1483,9 @@ function EditOrderForm({ customers, carriers, order, onSubmit, isLoading }: Edit
       ...data,
       carrierId: data.carrierId === "" ? undefined : data.carrierId,
       pickupTime: data.pickupTime === "" ? undefined : data.pickupTime,
+      pickupPONumber: data.pickupPONumber === "" ? undefined : data.pickupPONumber,
       deliveryTime: data.deliveryTime === "" ? undefined : data.deliveryTime,
+      deliveryPONumber: data.deliveryPONumber === "" ? undefined : data.deliveryPONumber,
       weight: data.weight === "" ? undefined : data.weight,
       dimensions: data.dimensions === "" ? undefined : data.dimensions,
       notes: data.notes === "" ? undefined : data.notes,
@@ -1579,6 +1615,19 @@ function EditOrderForm({ customers, carriers, order, onSubmit, isLoading }: Edit
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="pickupPONumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Pickup PO Number</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter pickup PO number (optional)" {...field} data-testid="edit-input-pickup-po-number" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         {/* Delivery Information */}
@@ -1631,6 +1680,19 @@ function EditOrderForm({ customers, carriers, order, onSubmit, isLoading }: Edit
                 <FormLabel>Delivery Time</FormLabel>
                 <FormControl>
                   <Input type="time" {...field} data-testid="edit-input-delivery-time" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="deliveryPONumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Delivery PO Number</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter delivery PO number (optional)" {...field} data-testid="edit-input-delivery-po-number" />
                 </FormControl>
                 <FormMessage />
               </FormItem>

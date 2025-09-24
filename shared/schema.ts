@@ -68,6 +68,7 @@ export const orders = pgTable("orders", {
   pickupAddress: text("pickup_address").notNull(),
   pickupDate: timestamp("pickup_date").notNull(),
   pickupTime: text("pickup_time"),
+  pickupPONumber: text("pickup_po_number"),
   
   // Multiple pickup locations (array of JSON objects)
   pickupLocations: text("pickup_locations").array(),
@@ -76,6 +77,7 @@ export const orders = pgTable("orders", {
   deliveryAddress: text("delivery_address").notNull(),
   deliveryDate: timestamp("delivery_date").notNull(),
   deliveryTime: text("delivery_time"),
+  deliveryPONumber: text("delivery_po_number"),
   
   // Multiple delivery locations (array of JSON objects)
   deliveryLocations: text("delivery_locations").array(),
