@@ -71,11 +71,11 @@ export function TrackingView() {
       case "on the way":
         return "default"
       case "loading":
-        return "secondary"
+        return "default"
       case "waiting":
-        return "outline"
+        return "secondary"
       case "delivered":
-        return "destructive"
+        return "default"
       default:
         return "outline"
     }
@@ -84,15 +84,15 @@ export function TrackingView() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "on the way":
-        return "text-blue-600"
+        return "text-blue-700 bg-blue-100 border-blue-200"
       case "loading":
-        return "text-yellow-600"
+        return "text-yellow-800 bg-yellow-100 border-yellow-200"
       case "waiting":
-        return "text-orange-600"
+        return "text-orange-700 bg-orange-100 border-orange-200"
       case "delivered":
-        return "text-green-600"
+        return "text-green-700 bg-green-100 border-green-200"
       default:
-        return "text-gray-600"
+        return "text-gray-600 bg-gray-100 border-gray-200"
     }
   }
 

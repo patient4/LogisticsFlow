@@ -98,8 +98,7 @@ export default function Customers() {
       const url = searchTerm 
         ? `/api/customers?search=${encodeURIComponent(searchTerm)}`
         : '/api/customers'
-      const response = await fetch(url)
-      if (!response.ok) throw new Error('Failed to fetch customers')
+      const response = await apiRequest('GET', url)
       const data = await response.json()
       return data as Customer[]
     }
@@ -107,10 +106,9 @@ export default function Customers() {
 
   // Fetch all orders to calculate customer statistics
   const { data: orders = [], isLoading: isLoadingOrders } = useQuery({
-    queryKey: ['/api/orders'],
+    queryKey: ['/api/orders', 'limit=1000'],
     queryFn: async () => {
-      const response = await fetch('/api/orders?limit=1000') // Get enough orders for calculation
-      if (!response.ok) throw new Error('Failed to fetch orders')
+      const response = await apiRequest('GET', '/api/orders?limit=1000')
       const data = await response.json()
       return data as (Order & { customer: Customer })[]
     }
@@ -153,8 +151,7 @@ export default function Customers() {
     queryKey: ['/api/customers', selectedCustomerId],
     queryFn: async () => {
       if (!selectedCustomerId) return null
-      const response = await fetch(`/api/customers/${selectedCustomerId}`)
-      if (!response.ok) throw new Error('Failed to fetch customer details')
+      const response = await apiRequest('GET', `/api/customers/${selectedCustomerId}`)
       const data = await response.json()
       return data as Customer
     },
@@ -171,8 +168,10 @@ export default function Customers() {
       return apiRequest('POST', '/api/customers', customerData)
     },
     onSuccess: () => {
-      // Invalidate all customer queries, including filtered ones
-      queryClient.invalidateQueries({ queryKey: ['/api/customers'], exact: false })
+      // Invalidate all customer queries, including filtered ones, while preserving current search state
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === '/api/customers'
+      })
       toast({
         title: "Customer Created",
         description: "New customer has been successfully added.",

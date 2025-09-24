@@ -6,11 +6,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TopNavigation } from "@/components/TopNavigation";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import Dashboard from "@/pages/Dashboard";
 import Orders from "@/pages/Orders";
 import Tracking from "@/pages/Tracking";
 import Customers from "@/pages/Customers";
-import Carriers from "@/pages/Carriers";
 import Profile from "@/pages/Profile";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/LoginPage";
@@ -18,11 +16,9 @@ import LoginPage from "@/pages/LoginPage";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/orders" component={Orders} />
+      <Route path="/" component={Orders} />
       <Route path="/tracking" component={Tracking} />
       <Route path="/customers" component={Customers} />
-      <Route path="/carriers" component={Carriers} />
       <Route path="/profile" component={Profile} />
       <Route component={NotFound} />
     </Switch>

@@ -6,11 +6,9 @@ import { queryClient } from "@/lib/queryClient"
 import { Link, useLocation } from "wouter"
 
 const navItems = [
-  { label: "Dashboard", url: "/", testId: "nav-tab-dashboard" },
-  { label: "Orders", url: "/orders", testId: "nav-tab-orders" },
+  { label: "Orders", url: "/", testId: "nav-tab-orders" },
   { label: "Tracking", url: "/tracking", testId: "nav-tab-tracking" },
   { label: "Customers", url: "/customers", testId: "nav-tab-customers" },
-  { label: "Carriers", url: "/carriers", testId: "nav-tab-carriers" },
 ]
 
 export function TopNavigation() {
