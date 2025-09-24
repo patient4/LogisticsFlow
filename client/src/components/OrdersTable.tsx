@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Edit, Trash2, Search, Filter, Download, Printer, Plus, CalendarIcon, Eye, MapPin, Route } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Edit, Trash2, Search, Filter, Download, Printer, Plus, CalendarIcon, Eye, MapPin, Route, Save, RefreshCw, ExternalLink } from "lucide-react"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -898,15 +899,213 @@ export function OrdersTable() {
       
       {/* Tracking Modal */}
       <Dialog open={!!trackingOrder} onOpenChange={(open) => !open && setTrackingOrder(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Order Tracking - {trackingOrder?.orderNumber}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Route className="w-5 h-5" />
+              Order Tracking - {trackingOrder?.orderNumber}
+            </DialogTitle>
           </DialogHeader>
-          <div className="p-4 text-center text-muted-foreground">
-            <MapPin className="w-12 h-12 mx-auto mb-4" />
-            <p>Tracking modal will be implemented here with map view and controls.</p>
-            <p className="text-sm mt-2">Order: {trackingOrder?.orderNumber}</p>
-          </div>
+          
+          {trackingOrder && (
+            <div className="space-y-6">
+              {/* Order Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Customer</label>
+                  <p className="font-medium" data-testid="text-customer-name">{trackingOrder.customerName}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
+                  <div data-testid="badge-order-status">{getStatusBadge(trackingOrder.orderStatus, 'order')}</div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Payment</label>
+                  <div data-testid="badge-payment-status">{getStatusBadge(trackingOrder.paymentStatus, 'payment')}</div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Amount</label>
+                  <p className="font-medium" data-testid="text-order-amount">${Number(trackingOrder.amount).toFixed(2)}</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Main Content Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column - Map and Route */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Route & Map</h3>
+                    <Button variant="outline" size="sm" data-testid="button-refresh-route">
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
+                  
+                  {/* Map Placeholder */}
+                  <Card className="h-64 bg-muted/20">
+                    <CardContent className="flex flex-col items-center justify-center h-full text-center p-6">
+                      <MapPin className="w-12 h-12 text-primary mb-4" />
+                      <h4 className="font-semibold mb-2">Interactive Map View</h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Real-time tracking map will be displayed here
+                      </p>
+                      <Button variant="outline" size="sm" data-testid="button-open-maps">
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open in Maps
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* Route Information */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Route Details</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
+                        <div>
+                          <p className="font-medium">Pickup Location</p>
+                          <p className="text-sm text-muted-foreground" data-testid="text-pickup-location">{trackingOrder.pickupLocation}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-2 h-2 rounded-full bg-red-500 mt-2"></div>
+                        <div>
+                          <p className="font-medium">Delivery Location</p>
+                          <p className="text-sm text-muted-foreground" data-testid="text-delivery-location">{trackingOrder.deliveryLocation}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Right Column - Status Controls and Updates */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Status & Updates</h3>
+                  
+                  {/* Order Status Control */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Order Status</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Update Status</label>
+                        <Select defaultValue={trackingOrder.orderStatus}>
+                          <SelectTrigger data-testid="select-order-status">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="processing">Processing</SelectItem>
+                            <SelectItem value="shipped">Shipped</SelectItem>
+                            <SelectItem value="in_transit">In Transit</SelectItem>
+                            <SelectItem value="delivered">Delivered</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Payment Status</label>
+                        <Select defaultValue={trackingOrder.paymentStatus}>
+                          <SelectTrigger data-testid="select-payment-status">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="paid">Paid</SelectItem>
+                            <SelectItem value="partial">Partial</SelectItem>
+                            <SelectItem value="failed">Failed</SelectItem>
+                            <SelectItem value="refunded">Refunded</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Carrier Assignment */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Carrier Assignment</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Assigned Carrier</label>
+                        <Select defaultValue="">
+                          <SelectTrigger data-testid="select-carrier">
+                            <SelectValue placeholder="Select carrier..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="carrier1">Swift Logistics</SelectItem>
+                            <SelectItem value="carrier2">Express Freight</SelectItem>
+                            <SelectItem value="carrier3">Global Transport</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Estimated Delivery</label>
+                        <Input type="date" data-testid="input-eta" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Shipment Notes */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Shipment Notes</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <Textarea 
+                        placeholder="Add tracking notes, updates, or special instructions..."
+                        rows={4}
+                        data-testid="textarea-notes"
+                      />
+                      <Button className="w-full" data-testid="button-save-tracking-updates">
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Updates
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Tracking History */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Tracking History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium">Order Created</p>
+                          <span className="text-sm text-muted-foreground">2 hours ago</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">Order {trackingOrder.orderNumber} was created and is pending processing.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 rounded-full bg-muted mt-2"></div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium text-muted-foreground">Processing</p>
+                          <span className="text-sm text-muted-foreground">Pending</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">Order will be processed and prepared for shipment.</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
