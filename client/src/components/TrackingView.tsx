@@ -84,6 +84,8 @@ interface TrackingViewProps {
 export function TrackingView({ orderId }: TrackingViewProps) {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [searchOrderId, setSearchOrderId] = useState("")
+  const [currentOrderId, setCurrentOrderId] = useState(orderId || "")
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false)
   const [updateFormData, setUpdateFormData] = useState({
     status: "on the way", // Default to valid status
@@ -92,40 +94,38 @@ export function TrackingView({ orderId }: TrackingViewProps) {
     notes: ""
   })
 
-  // Debug: Log orderId when it changes
-  console.log('TrackingView - orderId:', orderId, 'enabled:', !!orderId)
+  // Update currentOrderId when orderId prop changes
+  useEffect(() => {
+    if (orderId) {
+      setCurrentOrderId(orderId)
+      setSearchOrderId(orderId)
+    }
+  }, [orderId])
 
-  // Fetch order data when orderId is provided
+  // Fetch order data when currentOrderId is provided
   const { data: order, isLoading: isLoadingOrder, error } = useQuery<Order>({
-    queryKey: ['/api/orders', orderId],
+    queryKey: ['/api/orders', currentOrderId],
     queryFn: async () => {
-      if (!orderId) throw new Error('Order ID is required')
-      console.log('TrackingView - Fetching order:', orderId)
-      const response = await apiRequest('GET', `/api/orders/${orderId}`)
+      if (!currentOrderId) throw new Error('Order ID is required')
+      const response = await apiRequest('GET', `/api/orders/${currentOrderId}`)
       const data = await response.json()
-      console.log('TrackingView - Order data received:', data)
       return data as Order
     },
-    enabled: !!orderId
+    enabled: !!currentOrderId
   })
 
-  // Debug: Log query state
-  console.log('TrackingView - Query state:', { 
-    order: !!order, 
-    orderData: order, 
-    isLoading: isLoadingOrder, 
-    error, 
-    enabled: !!orderId,
-    conditionMet: !!(orderId && order)
-  })
+  // Handle search form submission
+  const handleSearchOrder = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchOrderId.trim()) {
+      setCurrentOrderId(searchOrderId.trim())
+    }
+  }
 
-  // If there's an error, show it
-  if (orderId && error) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-destructive">Error loading order: {error.message}</div>
-      </div>
-    )
+  // Handle clearing search
+  const handleClearSearch = () => {
+    setSearchOrderId("")
+    setCurrentOrderId("")
   }
 
   // TODO: Replace with real driver tracking data - for now use mock data
@@ -215,22 +215,85 @@ export function TrackingView({ orderId }: TrackingViewProps) {
 
   const handleDriverSelect = (driver: Driver) => {
     setSelectedDriver(driver)
-    console.log(`Selected driver: ${driver.name}`)
   }
 
   // Show loading state when fetching order
-  if (orderId && isLoadingOrder) {
+  if (currentOrderId && isLoadingOrder) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-muted-foreground">Loading order details...</div>
+      <div className="space-y-6">
+        {/* Search Bar */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Order Tracking Search</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSearchOrder} className="flex gap-2">
+              <Input
+                placeholder="Enter Order ID to track..."
+                value={searchOrderId}
+                onChange={(e) => setSearchOrderId(e.target.value)}
+                className="flex-1"
+                data-testid="input-order-search"
+              />
+              <Button type="submit" data-testid="button-search-order">
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </Button>
+              {currentOrderId && (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleClearSearch}
+                  data-testid="button-clear-search"
+                >
+                  Clear
+                </Button>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+        
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg text-muted-foreground">Loading order details...</div>
+        </div>
       </div>
     )
   }
 
   // Show order-specific tracking when order is loaded
-  if (orderId && order) {
+  if (currentOrderId && order) {
     return (
       <div className="space-y-6">
+        {/* Search Bar */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Order Tracking Search</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSearchOrder} className="flex gap-2">
+              <Input
+                placeholder="Enter Order ID to track..."
+                value={searchOrderId}
+                onChange={(e) => setSearchOrderId(e.target.value)}
+                className="flex-1"
+                data-testid="input-order-search"
+              />
+              <Button type="submit" data-testid="button-search-order">
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleClearSearch}
+                data-testid="button-clear-search"
+              >
+                Clear
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
         {/* Order Header */}
         <Card>
           <CardHeader>
@@ -373,42 +436,94 @@ export function TrackingView({ orderId }: TrackingViewProps) {
     )
   }
 
-  // Debug fallback - show what's happening when order isn't displayed
-  if (orderId && !isLoadingOrder && !order) {
+  // Show error state with search
+  if (currentOrderId && error) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="text-lg text-muted-foreground mb-2">Debug: Order not loaded</div>
-          <div className="text-sm text-muted-foreground">
-            orderId: {orderId}<br/>
-            isLoading: {isLoadingOrder.toString()}<br/>
-            hasOrder: {(!!order).toString()}<br/>
-            error: {error?.message || 'none'}
+      <div className="space-y-6">
+        {/* Search Bar */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Order Tracking Search</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSearchOrder} className="flex gap-2">
+              <Input
+                placeholder="Enter Order ID to track..."
+                value={searchOrderId}
+                onChange={(e) => setSearchOrderId(e.target.value)}
+                className="flex-1"
+                data-testid="input-order-search"
+              />
+              <Button type="submit" data-testid="button-search-order">
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleClearSearch}
+                data-testid="button-clear-search"
+              >
+                Clear
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-lg text-destructive mb-2">Order not found</div>
+            <div className="text-sm text-muted-foreground">
+              Order ID "{currentOrderId}" could not be found. Please check the ID and try again.
+            </div>
           </div>
         </div>
       </div>
     )
   }
 
-  // Show default driver list view when no order is selected
+  // Show default search view when no order is selected
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-      {/* Left Panel - Drivers List */}
-      <Card className="flex flex-col">
-        <CardHeader className="pb-4">
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-                data-testid="input-driver-search"
-              />
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Search Bar */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Order Tracking Search</CardTitle>
         </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSearchOrder} className="flex gap-2">
+            <Input
+              placeholder="Enter Order ID to track..."
+              value={searchOrderId}
+              onChange={(e) => setSearchOrderId(e.target.value)}
+              className="flex-1"
+              data-testid="input-order-search"
+            />
+            <Button type="submit" data-testid="button-search-order">
+              <Search className="w-4 h-4 mr-2" />
+              Search
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+        {/* Left Panel - Drivers List */}
+        <Card className="flex flex-col">
+          <CardHeader className="pb-4">
+            <div className="flex items-center space-x-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Search drivers..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-driver-search"
+                />
+              </div>
+            </div>
+          </CardHeader>
         <CardContent className="flex-1 space-y-4 overflow-y-auto">
           {drivers
             .filter(driver => 
@@ -742,6 +857,7 @@ export function TrackingView({ orderId }: TrackingViewProps) {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   )
 }
