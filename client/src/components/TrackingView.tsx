@@ -92,17 +92,41 @@ export function TrackingView({ orderId }: TrackingViewProps) {
     notes: ""
   })
 
+  // Debug: Log orderId when it changes
+  console.log('TrackingView - orderId:', orderId, 'enabled:', !!orderId)
+
   // Fetch order data when orderId is provided
-  const { data: order, isLoading: isLoadingOrder } = useQuery<Order>({
+  const { data: order, isLoading: isLoadingOrder, error } = useQuery<Order>({
     queryKey: ['/api/orders', orderId],
     queryFn: async () => {
       if (!orderId) throw new Error('Order ID is required')
+      console.log('TrackingView - Fetching order:', orderId)
       const response = await apiRequest('GET', `/api/orders/${orderId}`)
       const data = await response.json()
+      console.log('TrackingView - Order data received:', data)
       return data as Order
     },
     enabled: !!orderId
   })
+
+  // Debug: Log query state
+  console.log('TrackingView - Query state:', { 
+    order: !!order, 
+    orderData: order, 
+    isLoading: isLoadingOrder, 
+    error, 
+    enabled: !!orderId,
+    conditionMet: !!(orderId && order)
+  })
+
+  // If there's an error, show it
+  if (orderId && error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg text-destructive">Error loading order: {error.message}</div>
+      </div>
+    )
+  }
 
   // TODO: Replace with real driver tracking data - for now use mock data
   const [drivers, setDrivers] = useState<Driver[]>([
@@ -345,6 +369,23 @@ export function TrackingView({ orderId }: TrackingViewProps) {
             )}
           </div>
         )}
+      </div>
+    )
+  }
+
+  // Debug fallback - show what's happening when order isn't displayed
+  if (orderId && !isLoadingOrder && !order) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-lg text-muted-foreground mb-2">Debug: Order not loaded</div>
+          <div className="text-sm text-muted-foreground">
+            orderId: {orderId}<br/>
+            isLoading: {isLoadingOrder.toString()}<br/>
+            hasOrder: {(!!order).toString()}<br/>
+            error: {error?.message || 'none'}
+          </div>
+        </div>
       </div>
     )
   }

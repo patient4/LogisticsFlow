@@ -5,6 +5,9 @@ export default function Tracking() {
   const [match, params] = useRoute("/tracking/:orderId?")
   const orderId = params?.orderId
 
+  // Debug: Log route matching and orderId extraction
+  console.log('Tracking page - Route match:', match, 'params:', params, 'orderId:', orderId)
+
   return (
     <div className="p-6 bg-background min-h-screen">
       <div className="mb-6">
