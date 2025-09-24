@@ -88,7 +88,7 @@ interface Order {
   dimensions?: string
   amount: string
   gstPercentage?: string
-  orderStatus: "pending" | "processing" | "shipped" | "delivered" | "cancelled"
+  orderStatus: "pending" | "processing" | "shipped" | "in_transit" | "delivered" | "cancelled"
   paymentStatus: "pending" | "paid" | "processing" | "failed"
   notes?: string
   createdAt: string
@@ -992,6 +992,82 @@ export function OrdersTable() {
                       <CardTitle className="text-base">Order Status</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      {/* Order Status Stepper */}
+                      <div className="space-y-4">
+                        <label className="text-sm font-medium">Progress Tracker</label>
+                        <div className="flex flex-col space-y-4" data-testid="status-stepper">
+                          {(() => {
+                            const steps = ['pending', 'processing', 'shipped', 'in_transit', 'delivered'];
+                            const isCancelled = trackingOrder.orderStatus === 'cancelled';
+                            const currentIndex = isCancelled ? -1 : steps.indexOf(trackingOrder.orderStatus);
+                            
+                            if (isCancelled) {
+                              return (
+                                <>
+                                  {/* Cancelled Status Display */}
+                                  <div className="text-center p-4">
+                                    <div 
+                                      className="w-12 h-12 mx-auto mb-2 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-lg font-bold"
+                                      data-testid="status-cancelled"
+                                    >
+                                      ✕
+                                    </div>
+                                    <p className="text-sm font-medium text-destructive">Order Cancelled</p>
+                                    <p className="text-xs text-muted-foreground mt-1">This order has been cancelled and will not proceed through normal stages</p>
+                                  </div>
+                                </>
+                              );
+                            }
+                            
+                            return (
+                              <>
+                                {/* Stepper Steps */}
+                                <div className="flex items-center space-x-2">
+                                  {steps.map((step, index) => {
+                                    const isCompleted = index < currentIndex;
+                                    const isActive = index === currentIndex;
+                                    const isUpcoming = index > currentIndex;
+                                    
+                                    return (
+                                      <div key={step} className="flex items-center space-x-2">
+                                        <div
+                                          className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                                            isCompleted
+                                              ? 'bg-primary text-primary-foreground'
+                                              : isActive
+                                              ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2'
+                                              : 'bg-muted text-muted-foreground'
+                                          }`}
+                                          data-testid={`step-${step}`}
+                                        >
+                                          {isCompleted ? '✓' : isActive ? '●' : index + 1}
+                                        </div>
+                                        {index < steps.length - 1 && (
+                                          <div
+                                            className={`h-0.5 flex-1 ${
+                                              (index + 1) <= currentIndex ? 'bg-primary' : 'bg-muted'
+                                            }`}
+                                          ></div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                
+                                {/* Step Labels */}
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                  <span>Pending</span>
+                                  <span>Processing</span>
+                                  <span>Shipped</span>
+                                  <span>In Transit</span>
+                                  <span>Delivered</span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Update Status</label>
                         <Select defaultValue={trackingOrder.orderStatus}>
@@ -1002,7 +1078,7 @@ export function OrdersTable() {
                             <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="processing">Processing</SelectItem>
                             <SelectItem value="shipped">Shipped</SelectItem>
-                            <SelectItem value="in_transit">In Transit</SelectItem>
+                            <SelectItem value="in_transit" data-testid="option-in-transit">In Transit</SelectItem>
                             <SelectItem value="delivered">Delivered</SelectItem>
                             <SelectItem value="cancelled">Cancelled</SelectItem>
                           </SelectContent>

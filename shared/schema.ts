@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums for status fields
-export const orderStatusEnum = pgEnum("order_status", ["pending", "processing", "shipped", "delivered", "cancelled"]);
+export const orderStatusEnum = pgEnum("order_status", ["pending", "processing", "shipped", "in_transit", "delivered", "cancelled"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "paid", "processing", "failed"]);
 export const driverStatusEnum = pgEnum("driver_status", ["available", "on_the_way", "loading", "waiting", "delivered"]);
 
