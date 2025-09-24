@@ -1,0 +1,49 @@
+Extend the current Order Management UI with the following features:
+
+⸻
+
+1. Order Tracking Enhancements
+	•	Add a new Tracking column in the order list table with a “View Route & Update” button.
+	•	When clicked, open a modal with:
+	•	Map View (Google Maps / Leaflet): Pickup → Delivery route, live status marker.
+	•	Order Status Controls: Dropdown or stepper to update order status (Pending → Processing → Shipped → In Transit → Delivered).
+	•	Additional Controls:
+	•	Add/Edit shipment notes.
+	•	Update payment status (Pending / Paid).
+	•	Assign carrier (dropdown).
+	•	ETA and delivery confirmation toggle.
+	•	All updates should reflect instantly in the main order list.
+
+⸻
+
+2. Customer Management
+	•	Add a Customers tab next to Orders.
+	•	Table columns: Customer ID, Name, Email, Phone, Total Orders, Total Spend, Status (Active/Inactive), Actions.
+	•	“+ Add Customer” button with modal form.
+	•	Clicking on a customer opens their profile drawer with details: contact info, order history, revenue contribution.
+
+⸻
+
+3. Profile Page with Role-Based Access
+	•	Create a dedicated Profile Page (accessible via top-right user menu).
+	•	Show user details: Name, Role, Email, Last login, Profile picture.
+	•	Show permissions dynamically based on role:
+	•	ADMIN: Full access — can manage orders, customers, tracking, payments, system settings, and even tax configurations (e.g., GST rates).
+	•	BROKER: Limited access — can manage orders, customers, tracking, but cannot modify system-level settings (like taxes).
+	•	VIEWER: Read-only — can view orders, customers, tracking, but no edit/delete actions.
+	•	UI Design:
+	•	Use clean card layout with role badges (colored labels like “Admin”, “Broker”, “Viewer”).
+	•	Sections: Profile Info, Permissions, Activity Log.
+	•	Add a role-specific dashboard greeting (e.g., “Welcome back, Admin! Here’s your control panel.”).
+
+⸻
+
+4. UI Polish
+	•	Maintain the modern dashboard styling (like current screenshot).
+	•	Use consistent buttons, tabs, and card layouts.
+	•	Ensure responsive design (desktop + mobile).
+	•	Add placeholder actions with dummy data for now.
+
+⸻
+
+🎯 The final system should let users manage orders, customers, and tracking seamlessly, while role-based profiles control what actions are available

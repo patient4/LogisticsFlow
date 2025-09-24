@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Edit, Trash2, Search, Filter, Download, Printer, Plus, CalendarIcon, Eye } from "lucide-react"
+import { Edit, Trash2, Search, Filter, Download, Printer, Plus, CalendarIcon, Eye, MapPin, Route } from "lucide-react"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -145,6 +145,7 @@ export function OrdersTable() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false)
+  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null)
   
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -399,6 +400,11 @@ export function OrdersTable() {
     }
 
     setIsInvoicePreviewOpen(true)
+  }
+
+  // Handle tracking modal
+  const handleOpenTracking = (order: Order) => {
+    setTrackingOrder(order)
   }
 
   // Download Invoice functionality (now called from preview modal)
@@ -736,6 +742,7 @@ export function OrdersTable() {
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Payment</TableHead>
+                  <TableHead>Tracking</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -773,6 +780,17 @@ export function OrdersTable() {
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(order.paymentStatus, 'payment')}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenTracking(order)}
+                        data-testid={`button-tracking-${order.id}`}
+                      >
+                        <Route className="w-4 h-4 mr-2" />
+                        View Route & Update
+                      </Button>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">
@@ -874,6 +892,20 @@ export function OrdersTable() {
                 Download PDF
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Tracking Modal */}
+      <Dialog open={!!trackingOrder} onOpenChange={(open) => !open && setTrackingOrder(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Order Tracking - {trackingOrder?.orderNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 text-center text-muted-foreground">
+            <MapPin className="w-12 h-12 mx-auto mb-4" />
+            <p>Tracking modal will be implemented here with map view and controls.</p>
+            <p className="text-sm mt-2">Order: {trackingOrder?.orderNumber}</p>
           </div>
         </DialogContent>
       </Dialog>
