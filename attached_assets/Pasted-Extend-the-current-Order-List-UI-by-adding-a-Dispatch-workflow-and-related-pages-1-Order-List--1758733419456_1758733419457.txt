@@ -1,0 +1,61 @@
+Extend the current Order List UI by adding a Dispatch workflow and related pages:
+
+⸻
+
+1. Order List Enhancements
+	•	Keep existing Order List UI intact.
+	•	Add a new Dispatch button (just to the left of “View Invoice” in Actions column).
+	•	On clicking Dispatch:
+	•	Open a Dispatch Creation Form (modal or drawer).
+	•	Fields:
+	•	Select Carrier (dropdown populated from Carrier Management table).
+	•	Carrier details auto-populated (carrier name, contact, email, driver info, etc).
+	•	Carrier Mobile (auto-populated but editable).
+	•	Rate & Currency (dropdown for USD, CAD, etc).
+	•	PO Number (optional field).
+	•	Create Dispatch button to finalize.
+	•	On submission:
+	•	Dispatch entry is created and stored in Dispatch List.
+	•	Order status is updated to Dispatched.
+
+⸻
+
+2. Carrier Management Page
+	•	New page: Carriers.
+	•	Table UI similar to Orders & Customers:
+	•	Columns: Carrier ID, Name, Contact Person, Mobile, Email, Rate per mile/km, Default Currency, Actions (Edit/Delete).
+	•	“+ Add Carrier” button with modal form.
+	•	Dispatch Creation Form will use this table for dropdown selection.
+
+⸻
+
+3. Dispatch List Page
+	•	New page: Dispatch List with similar UI to Order List.
+	•	Table Columns: Dispatch ID, Order ID, Carrier, Driver, Pickup, Delivery, Rate, Currency, Status, Actions.
+	•	Actions:
+	•	Preview Dispatch (PDF) — shows order info, carrier info, driver info, PO number, and delivery details.
+	•	Update Dispatch — opens form to modify carrier or status.
+	•	Should show only dispatched orders.
+
+⸻
+
+4. Tracing & Status Updates
+	•	Extend the Tracking Page:
+	•	Dispatched orders should now appear here.
+	•	Add status dropdown per order/dispatch:
+	•	Pending
+	•	Heading for Pickup
+	•	At Pickup (border crossed, etc)
+	•	In Transit
+	•	At Delivery
+	•	Delivered
+	•	Changing status should update everywhere (Order List, Dispatch List, Tracking Page).
+	•	Status changes should be visually distinct (badges/colored chips).
+
+⸻
+
+5. UI/UX Polish
+	•	Keep the dashboard style consistent with Orders/Customers.
+	•	Use tabs or top navigation for Orders, Dispatch, Carriers, Customers, Tracking.
+	•	For PDF previews (Invoice / Dispatch Note), use a clean document-style layout with branding space, company details, and order/dispatch metadata.
+	•	Ensure all forms auto-fill where possible (carrier info, order info) to reduce manual entry.

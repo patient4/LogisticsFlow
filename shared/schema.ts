@@ -4,9 +4,11 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums for status fields
-export const orderStatusEnum = pgEnum("order_status", ["pending", "processing", "shipped", "in_transit", "delivered", "cancelled"]);
+export const orderStatusEnum = pgEnum("order_status", ["pending", "processing", "shipped", "in_transit", "delivered", "cancelled", "dispatched"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "paid", "processing", "failed"]);
 export const driverStatusEnum = pgEnum("driver_status", ["available", "on_the_way", "loading", "waiting", "delivered"]);
+export const dispatchStatusEnum = pgEnum("dispatch_status", ["pending", "heading_for_pickup", "at_pickup", "in_transit", "at_delivery", "delivered"]);
+export const currencyEnum = pgEnum("currency", ["USD", "CAD", "EUR", "GBP"]);
 
 // Users table for authentication
 export const users = pgTable("users", {
@@ -35,8 +37,13 @@ export const carriers = pgTable("carriers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   code: text("code").notNull().unique(),
+  contactPerson: text("contact_person").notNull(),
   contactEmail: text("contact_email").notNull(),
   contactPhone: text("contact_phone").notNull(),
+  mobile: text("mobile").notNull(),
+  ratePerMile: decimal("rate_per_mile", { precision: 10, scale: 2 }),
+  ratePerKm: decimal("rate_per_km", { precision: 10, scale: 2 }),
+  defaultCurrency: currencyEnum("default_currency").notNull().default("USD"),
   serviceAreas: text("service_areas").array(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -101,6 +108,27 @@ export const orders = pgTable("orders", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Dispatches table - links orders to carriers with dispatch-specific details
+export const dispatches = pgTable("dispatches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dispatchNumber: text("dispatch_number").notNull().unique(),
+  orderId: varchar("order_id").references(() => orders.id).notNull(),
+  carrierId: varchar("carrier_id").references(() => carriers.id).notNull(),
+  driverId: varchar("driver_id").references(() => drivers.id),
+  
+  // Dispatch-specific details
+  rate: decimal("rate", { precision: 10, scale: 2 }).notNull(),
+  currency: currencyEnum("currency").notNull().default("USD"),
+  poNumber: text("po_number"),
+  carrierMobile: text("carrier_mobile"), // editable copy of carrier mobile
+  
+  // Status and metadata
+  dispatchStatus: dispatchStatusEnum("dispatch_status").notNull().default("pending"),
+  notes: text("notes"),
+  dispatchedAt: timestamp("dispatched_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Order tracking events for history
 export const orderTrackingEvents = pgTable("order_tracking_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -123,6 +151,7 @@ export const customersRelations = relations(customers, ({ many }) => ({
 export const carriersRelations = relations(carriers, ({ many }) => ({
   orders: many(orders),
   drivers: many(drivers),
+  dispatches: many(dispatches),
 }));
 
 export const driversRelations = relations(drivers, ({ one, many }) => ({
@@ -131,6 +160,7 @@ export const driversRelations = relations(drivers, ({ one, many }) => ({
     references: [carriers.id],
   }),
   orders: many(orders),
+  dispatches: many(dispatches),
 }));
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -147,12 +177,28 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     references: [drivers.id],
   }),
   trackingEvents: many(orderTrackingEvents),
+  dispatches: many(dispatches),
 }));
 
 export const orderTrackingEventsRelations = relations(orderTrackingEvents, ({ one }) => ({
   order: one(orders, {
     fields: [orderTrackingEvents.orderId],
     references: [orders.id],
+  }),
+}));
+
+export const dispatchesRelations = relations(dispatches, ({ one }) => ({
+  order: one(orders, {
+    fields: [dispatches.orderId],
+    references: [orders.id],
+  }),
+  carrier: one(carriers, {
+    fields: [dispatches.carrierId],
+    references: [carriers.id],
+  }),
+  driver: one(drivers, {
+    fields: [dispatches.driverId],
+    references: [drivers.id],
   }),
 }));
 
@@ -189,6 +235,13 @@ export const insertOrderTrackingEventSchema = createInsertSchema(orderTrackingEv
   createdAt: true,
 });
 
+export const insertDispatchSchema = createInsertSchema(dispatches).omit({
+  id: true,
+  dispatchNumber: true,
+  dispatchedAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -207,3 +260,6 @@ export type Order = typeof orders.$inferSelect;
 
 export type InsertOrderTrackingEvent = z.infer<typeof insertOrderTrackingEventSchema>;
 export type OrderTrackingEvent = typeof orderTrackingEvents.$inferSelect;
+
+export type InsertDispatch = z.infer<typeof insertDispatchSchema>;
+export type Dispatch = typeof dispatches.$inferSelect;
