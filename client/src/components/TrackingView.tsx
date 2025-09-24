@@ -4,7 +4,23 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, ArrowLeft, MapPin } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Search, ArrowLeft, MapPin, Package, Clock, CheckCircle } from "lucide-react"
 import truckImage from "@assets/generated_images/Isometric_delivery_truck_illustration_8448972c.png"
 
 interface Driver {
@@ -25,15 +41,22 @@ interface CustomerDetail {
 export function TrackingView() {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false)
+  const [updateFormData, setUpdateFormData] = useState({
+    status: "on the way", // Default to valid status
+    location: "",
+    estimatedDelivery: "",
+    notes: ""
+  })
 
   // TODO: Remove mock data - replace with real driver tracking data
-  const drivers: Driver[] = [
+  const [drivers, setDrivers] = useState<Driver[]>([
     { id: "JD", name: "John Doe", initials: "JD", company: "Express Transport", status: "on the way" },
     { id: "JS", name: "Jane Smith", initials: "JS", company: "QuickShip Benz Metro", status: "loading" },
     { id: "MJ", name: "Mike Johnson", initials: "MJ", company: "LogiMove", status: "waiting" },
     { id: "ED", name: "Emily Davis", initials: "ED", company: "Fast Freight", status: "on the way" },
     { id: "CL", name: "Chris Lee", initials: "CL", company: "Rapid Haul", status: "delivered" },
-  ]
+  ])
 
   // TODO: Remove mock data - replace with real customer data
   const customerDetails: CustomerDetail = {
@@ -71,6 +94,44 @@ export function TrackingView() {
       default:
         return "text-gray-600"
     }
+  }
+
+  const handleUpdateTracking = () => {
+    if (selectedDriver) {
+      setUpdateFormData({
+        status: selectedDriver.status || "on the way", // Ensure non-empty status
+        location: "",
+        estimatedDelivery: "",
+        notes: ""
+      })
+      setIsUpdateModalOpen(true)
+    }
+  }
+
+  const handleSaveUpdate = () => {
+    if (selectedDriver) {
+      // Update the driver's status in local state
+      setDrivers(prev => prev.map(driver => 
+        driver.id === selectedDriver.id 
+          ? { ...driver, status: updateFormData.status as Driver['status'] }
+          : driver
+      ))
+      
+      // Update the selected driver to reflect new status
+      setSelectedDriver(prev => prev ? { ...prev, status: updateFormData.status as Driver['status'] } : null)
+      
+      // TODO: Implement API call to update tracking  
+      console.log("Saving tracking update:", updateFormData)
+    }
+    
+    setIsUpdateModalOpen(false)
+    // Reset form
+    setUpdateFormData({
+      status: "on the way",
+      location: "",
+      estimatedDelivery: "",
+      notes: ""
+    })
   }
 
   const handleDriverSelect = (driver: Driver) => {
@@ -247,8 +308,9 @@ export function TrackingView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => console.log("Update tracking triggered")}
+                    onClick={handleUpdateTracking}
                     data-testid="button-update-tracking"
+                    disabled={!selectedDriver}
                   >
                     Update Tracking
                   </Button>
@@ -327,6 +389,107 @@ export function TrackingView() {
           </Card>
         )}
       </div>
+
+      {/* Update Tracking Modal */}
+      <Dialog open={isUpdateModalOpen} onOpenChange={setIsUpdateModalOpen}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="tracking-update-form">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Update Tracking - {selectedDriver?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="status">Delivery Status</Label>
+              <Select
+                value={updateFormData.status}
+                onValueChange={(value) => setUpdateFormData({...updateFormData, status: value})}
+              >
+                <SelectTrigger data-testid="select-status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="on the way">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-blue-600" />
+                      On the way
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="loading">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-yellow-600" />
+                      Loading
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="waiting">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-orange-600" />
+                      Waiting
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="delivered">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      Delivered
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="location">Current Location</Label>
+              <Input
+                id="location"
+                value={updateFormData.location}
+                onChange={(e) => setUpdateFormData({...updateFormData, location: e.target.value})}
+                placeholder="Enter current location"
+                data-testid="input-location"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="estimated-delivery">Estimated Delivery</Label>
+              <Input
+                id="estimated-delivery"
+                type="datetime-local"
+                value={updateFormData.estimatedDelivery}
+                onChange={(e) => setUpdateFormData({...updateFormData, estimatedDelivery: e.target.value})}
+                data-testid="input-estimated-delivery"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={updateFormData.notes}
+                onChange={(e) => setUpdateFormData({...updateFormData, notes: e.target.value})}
+                placeholder="Add any additional notes..."
+                rows={3}
+                data-testid="textarea-notes"
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsUpdateModalOpen(false)}
+              data-testid="button-cancel-update"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveUpdate}
+              data-testid="button-save-update"
+            >
+              Save Update
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
