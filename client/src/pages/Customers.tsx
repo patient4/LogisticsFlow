@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation } from "@tanstack/react-query"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -18,6 +20,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
 import { 
   Plus, 
   Search, 
@@ -30,7 +47,10 @@ import {
   Phone,
   Mail
 } from "lucide-react"
-import type { Customer, Order } from "@/../../shared/schema"
+import type { Customer, Order, InsertCustomer } from "@/../../shared/schema"
+import { insertCustomerSchema } from "@/../../shared/schema"
+import { apiRequest, queryClient } from "@/lib/queryClient"
+import { useToast } from "@/hooks/use-toast"
 
 // Extended customer type with statistics
 interface CustomerWithStats extends Customer {
@@ -41,6 +61,21 @@ interface CustomerWithStats extends Customer {
 
 export default function Customers() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const { toast } = useToast()
+
+  // Form for adding new customer
+  const form = useForm<InsertCustomer>({
+    resolver: zodResolver(insertCustomerSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      city: "",
+      country: ""
+    }
+  })
 
   // Fetch customers with search functionality
   const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
@@ -97,6 +132,34 @@ export default function Customers() {
 
   const isLoading = isLoadingCustomers || isLoadingOrders
 
+  // Create customer mutation
+  const createCustomerMutation = useMutation({
+    mutationFn: async (customerData: InsertCustomer) => {
+      return apiRequest('POST', '/api/customers', customerData)
+    },
+    onSuccess: () => {
+      // Invalidate all customer queries, including filtered ones
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'], exact: false })
+      toast({
+        title: "Customer Created",
+        description: "New customer has been successfully added.",
+      })
+      form.reset()
+      setIsAddModalOpen(false)
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create customer",
+        variant: "destructive",
+      })
+    }
+  })
+
+  const onSubmitCustomer = (data: InsertCustomer) => {
+    createCustomerMutation.mutate(data)
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -125,10 +188,156 @@ export default function Customers() {
         <h1 className="text-2xl font-bold text-foreground" data-testid="page-title">
           Customer Management
         </h1>
-        <Button className="bg-primary text-primary-foreground" data-testid="button-add-customer">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Customer
-        </Button>
+        <Dialog open={isAddModalOpen} onOpenChange={(open) => {
+          setIsAddModalOpen(open)
+          if (!open) {
+            form.reset()
+          }
+        }}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary text-primary-foreground" data-testid="button-add-customer">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Customer
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Add New Customer</DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmitCustomer)} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter customer name" 
+                            {...field} 
+                            data-testid="input-customer-name"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="email"
+                            placeholder="customer@example.com" 
+                            {...field} 
+                            data-testid="input-customer-email"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="+1 (555) 123-4567" 
+                            {...field} 
+                            data-testid="input-customer-phone"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="City name" 
+                            {...field} 
+                            data-testid="input-customer-city"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Street Address</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Enter full address" 
+                          {...field} 
+                          data-testid="input-customer-address"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Country name" 
+                          {...field} 
+                          data-testid="input-customer-country"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsAddModalOpen(false)}
+                    data-testid="button-cancel-customer"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={createCustomerMutation.isPending}
+                    data-testid="button-submit-customer"
+                  >
+                    {createCustomerMutation.isPending ? "Creating..." : "Create Customer"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Summary Cards */}
