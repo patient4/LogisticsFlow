@@ -17,7 +17,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Orders} />
-      <Route path="/tracking" component={Tracking} />
+      <Route path="/tracking/:orderId?" component={Tracking} />
       <Route path="/customers" component={Customers} />
       <Route path="/profile" component={Profile} />
       <Route component={NotFound} />

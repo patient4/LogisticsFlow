@@ -1,4 +1,6 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { apiRequest } from "@/lib/queryClient"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,14 +33,55 @@ interface Driver {
   status: "on the way" | "loading" | "waiting" | "delivered"
 }
 
-interface CustomerDetail {
+interface Customer {
+  id: string
   name: string
   email: string
   phone: string
   address: string
+  city: string
+  country: string
 }
 
-export function TrackingView() {
+interface Carrier {
+  id: string
+  name: string
+  code: string
+  contactEmail: string
+  contactPhone: string
+}
+
+interface Order {
+  id: string
+  orderNumber: string
+  customerId: string
+  carrierId?: string
+  driverId?: string
+  pickupAddress: string
+  pickupDate: string
+  pickupTime?: string
+  deliveryAddress: string
+  deliveryDate: string
+  deliveryTime?: string
+  numberOfPallets: number
+  weight?: string
+  dimensions?: string
+  amount: string
+  gstPercentage?: string
+  orderStatus: "pending" | "processing" | "shipped" | "in_transit" | "delivered" | "cancelled"
+  paymentStatus: "pending" | "paid" | "processing" | "failed"
+  notes?: string
+  createdAt: string
+  updatedAt: string
+  customer: Customer
+  carrier?: Carrier
+}
+
+interface TrackingViewProps {
+  orderId?: string
+}
+
+export function TrackingView({ orderId }: TrackingViewProps) {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false)
@@ -49,7 +92,19 @@ export function TrackingView() {
     notes: ""
   })
 
-  // TODO: Remove mock data - replace with real driver tracking data
+  // Fetch order data when orderId is provided
+  const { data: order, isLoading: isLoadingOrder } = useQuery<Order>({
+    queryKey: ['/api/orders', orderId],
+    queryFn: async () => {
+      if (!orderId) throw new Error('Order ID is required')
+      const response = await apiRequest('GET', `/api/orders/${orderId}`)
+      const data = await response.json()
+      return data as Order
+    },
+    enabled: !!orderId
+  })
+
+  // TODO: Replace with real driver tracking data - for now use mock data
   const [drivers, setDrivers] = useState<Driver[]>([
     { id: "JD", name: "John Doe", initials: "JD", company: "Express Transport", status: "on the way" },
     { id: "JS", name: "Jane Smith", initials: "JS", company: "QuickShip Benz Metro", status: "loading" },
@@ -57,14 +112,6 @@ export function TrackingView() {
     { id: "ED", name: "Emily Davis", initials: "ED", company: "Fast Freight", status: "on the way" },
     { id: "CL", name: "Chris Lee", initials: "CL", company: "Rapid Haul", status: "delivered" },
   ])
-
-  // TODO: Remove mock data - replace with real customer data
-  const customerDetails: CustomerDetail = {
-    name: "Dhruv Sharma",
-    email: "Sharmadhruv047@gmail.com",
-    phone: "916 B273467588",
-    address: "Teachers colony govind garh",
-  }
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -139,6 +186,162 @@ export function TrackingView() {
     console.log(`Selected driver: ${driver.name}`)
   }
 
+  // Show loading state when fetching order
+  if (orderId && isLoadingOrder) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg text-muted-foreground">Loading order details...</div>
+      </div>
+    )
+  }
+
+  // Show order-specific tracking when order is loaded
+  if (orderId && order) {
+    return (
+      <div className="space-y-6">
+        {/* Order Header */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Order {order.orderNumber}</span>
+              <Badge variant={order.orderStatus === 'delivered' ? 'default' : 'secondary'} className={getStatusColor(order.orderStatus)}>
+                {order.orderStatus}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Customer</label>
+                <p className="font-medium">{order.customer.name}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Pickup</label>
+                <p className="text-sm">{order.pickupAddress}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Delivery</label>
+                <p className="text-sm">{order.deliveryAddress}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Amount</label>
+                <p className="font-medium">${Number(order.amount).toFixed(2)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Progress Tracker */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Order Progress</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between relative">
+              {["pending", "processing", "shipped", "in_transit", "delivered"].map((status, index, array) => {
+                const isCurrent = order.orderStatus === status
+                const isPast = array.indexOf(order.orderStatus) > index
+                const isCancelled = order.orderStatus === 'cancelled'
+                
+                return (
+                  <div key={status} className="flex flex-col items-center flex-1">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                      isCancelled ? 'bg-destructive text-destructive-foreground' :
+                      isPast || isCurrent ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {isPast ? <CheckCircle className="w-4 h-4" /> : index + 1}
+                    </div>
+                    <span className="text-xs mt-2 capitalize text-center">{status.replace('_', ' ')}</span>
+                    {index < array.length - 1 && (
+                      <div className={`absolute top-4 h-0.5 ${
+                        isPast ? 'bg-primary' : 'bg-muted'
+                      }`} style={{
+                        left: `${((index + 1) / array.length) * 100}%`,
+                        width: `${(1 / array.length) * 100}%`
+                      }} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Driver Assignment - only show if we have drivers */}
+        {drivers.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Available Drivers</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 max-h-96 overflow-y-auto">
+                {drivers.map((driver) => (
+                  <div
+                    key={driver.id}
+                    className={`p-4 rounded-lg border cursor-pointer transition-colors hover-elevate ${
+                      selectedDriver?.id === driver.id ? "bg-primary/10 border-primary" : "bg-card hover:bg-muted/50"
+                    }`}
+                    onClick={() => handleDriverSelect(driver)}
+                    data-testid={`driver-card-${driver.id}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="w-10 h-10">
+                          <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+                            {driver.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-semibold text-foreground">{driver.name}</p>
+                          <p className="text-sm text-muted-foreground">{driver.company}</p>
+                        </div>
+                      </div>
+                      <Badge variant={getStatusVariant(driver.status)} className={getStatusColor(driver.status)}>
+                        {driver.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {selectedDriver && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Driver Details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-4">
+                      <Avatar className="w-12 h-12">
+                        <AvatarFallback className="bg-primary text-primary-foreground font-bold text-lg">
+                          {selectedDriver.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-lg">{selectedDriver.name}</p>
+                        <p className="text-muted-foreground">{selectedDriver.company}</p>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      onClick={() => setIsUpdateModalOpen(true)}
+                      className="w-full"
+                      data-testid="button-update-tracking"
+                    >
+                      Update Tracking Status
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Show default driver list view when no order is selected
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
       {/* Left Panel - Drivers List */}

@@ -1,6 +1,10 @@
 import { TrackingView } from "@/components/TrackingView"
+import { useRoute } from "wouter"
 
 export default function Tracking() {
+  const [match, params] = useRoute("/tracking/:orderId?")
+  const orderId = params?.orderId
+
   return (
     <div className="p-6 bg-background min-h-screen">
       <div className="mb-6">
@@ -8,7 +12,7 @@ export default function Tracking() {
           Order Tracking
         </h1>
       </div>
-      <TrackingView />
+      <TrackingView orderId={orderId} />
     </div>
   )
 }

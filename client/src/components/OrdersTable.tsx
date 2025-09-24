@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { Edit, Trash2, Search, Filter, Download, Printer, Plus, CalendarIcon, Eye, MapPin, Route, Save, RefreshCw, ExternalLink } from "lucide-react"
+import { useLocation } from "wouter"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -146,11 +147,10 @@ export function OrdersTable() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false)
-  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null)
-  const [shipmentNotes, setShipmentNotes] = useState("")
   
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const [location, setLocation] = useLocation()
 
   // Fetch customers for dropdown
   const { data: customers = [] } = useQuery<Customer[]>({
@@ -501,9 +501,9 @@ export function OrdersTable() {
     setIsInvoicePreviewOpen(true)
   }
 
-  // Handle tracking modal
+  // Handle tracking navigation - navigate to tracking page with order ID
   const handleOpenTracking = (order: Order) => {
-    setTrackingOrder(order)
+    setLocation(`/tracking/${order.id}`)
   }
 
   // Download Invoice functionality (now called from preview modal)
@@ -994,9 +994,6 @@ export function OrdersTable() {
           </div>
         </DialogContent>
       </Dialog>
-      
-      {/* Tracking Modal */}
-      <Dialog open={!!trackingOrder} onOpenChange={(open) => !open && setTrackingOrder(null)}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1011,7 +1008,7 @@ export function OrdersTable() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Customer</label>
-                  <p className="font-medium" data-testid="text-customer-name">{trackingOrder.customerName}</p>
+                  <p className="font-medium" data-testid="text-customer-name">{trackingOrder.customer.name}</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Status</label>
@@ -1066,14 +1063,14 @@ export function OrdersTable() {
                         <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
                         <div>
                           <p className="font-medium">Pickup Location</p>
-                          <p className="text-sm text-muted-foreground" data-testid="text-pickup-location">{trackingOrder.pickupLocation}</p>
+                          <p className="text-sm text-muted-foreground" data-testid="text-pickup-location">{trackingOrder.pickupAddress}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
                         <div className="w-2 h-2 rounded-full bg-red-500 mt-2"></div>
                         <div>
                           <p className="font-medium">Delivery Location</p>
-                          <p className="text-sm text-muted-foreground" data-testid="text-delivery-location">{trackingOrder.deliveryLocation}</p>
+                          <p className="text-sm text-muted-foreground" data-testid="text-delivery-location">{trackingOrder.deliveryAddress}</p>
                         </div>
                       </div>
                     </CardContent>
