@@ -562,6 +562,21 @@ export function OrdersTable() {
     setSelectedOrderForDispatch(order)
     // Set orderId in form when opening dispatch modal
     dispatchForm.setValue('orderId', order.id)
+    
+    // Pre-populate PO number from order's pickup and delivery PO numbers
+    const pickupPO = (order as any).pickupPONumber
+    const deliveryPO = (order as any).deliveryPONumber
+    
+    let combinedPO = ""
+    if (pickupPO && deliveryPO) {
+      combinedPO = `Pickup: ${pickupPO}, Delivery: ${deliveryPO}`
+    } else if (pickupPO) {
+      combinedPO = `Pickup: ${pickupPO}`
+    } else if (deliveryPO) {
+      combinedPO = `Delivery: ${deliveryPO}`
+    }
+    
+    dispatchForm.setValue('poNumber', combinedPO)
     setIsDispatchModalOpen(true)
   }
 
