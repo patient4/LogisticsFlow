@@ -12,11 +12,7 @@ import {
 } from "@/components/ui/sidebar"
 
 const menuItems = [
-  { title: "Dashboard", url: "/", icon: Home, testId: "nav-dashboard" },
   { title: "Order list", url: "/orders", icon: Package, testId: "nav-orders" },
-  { title: "Tracking", url: "/tracking", icon: Truck, testId: "nav-tracking" },
-  { title: "Customer", url: "/customers", icon: Users, testId: "nav-customers" },
-  { title: "Carrier", url: "/carriers", icon: DollarSign, testId: "nav-carriers" },
 ]
 
 export function AppSidebar() {

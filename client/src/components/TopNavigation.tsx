@@ -3,17 +3,15 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/AuthContext"
 import { queryClient } from "@/lib/queryClient"
+import { Link, useLocation } from "wouter"
 
 const navItems = [
-  { label: "Order list", active: true, testId: "nav-tab-orders" },
-  { label: "Tracking", active: false, testId: "nav-tab-tracking" },
-  { label: "Dispatch", active: false, testId: "nav-tab-dispatch" },
-  { label: "Costumer", active: false, testId: "nav-tab-costumer" },
-  { label: "Carrier", active: false, testId: "nav-tab-carrier" },
+  { label: "Order list", url: "/orders", testId: "nav-tab-orders" },
 ]
 
 export function TopNavigation() {
   const { user, logout } = useAuth();
+  const [location] = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -24,15 +22,19 @@ export function TopNavigation() {
     <nav className="bg-sidebar border-b border-sidebar-border">
       <div className="flex items-center justify-between px-6 py-3">
         <div className="flex items-center space-x-4">
-          {navItems.map((item, index) => (
+          <div className="text-sidebar-foreground font-bold text-lg mr-8" data-testid="logo-text">
+            LOGO
+          </div>
+          {navItems.map((item) => (
             <Button
               key={item.label}
-              variant={item.active ? "default" : "ghost"}
+              variant={location === item.url ? "default" : "ghost"}
               size="sm"
-              className={item.active ? "bg-primary text-primary-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent"}
+              className={location === item.url ? "bg-primary text-primary-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent"}
               data-testid={item.testId}
+              asChild
             >
-              {item.label}
+              <Link href={item.url}>{item.label}</Link>
             </Button>
           ))}
         </div>

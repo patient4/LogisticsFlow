@@ -4,8 +4,6 @@ import { queryClient, setUnauthorizedHandler } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
 import { TopNavigation } from "@/components/TopNavigation";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Dashboard from "@/pages/Dashboard";
@@ -52,24 +50,13 @@ function AuthenticatedApp() {
     return <LoginPage />;
   }
 
-  // Custom sidebar width matching the design
-  const style = {
-    "--sidebar-width": "20rem",
-    "--sidebar-width-icon": "4rem",
-  };
-
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <TopNavigation />
-          <main className="flex-1 overflow-auto">
-            <Router />
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
+    <div className="flex flex-col h-screen w-full">
+      <TopNavigation />
+      <main className="flex-1 overflow-auto">
+        <Router />
+      </main>
+    </div>
   );
 }
 
