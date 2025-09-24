@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Orders from "@/pages/Orders";
 import Tracking from "@/pages/Tracking";
 import Customers from "@/pages/Customers";
+import Carriers from "@/pages/Carriers";
 import Profile from "@/pages/Profile";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/LoginPage";
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/" component={Orders} />
       <Route path="/tracking/:orderId?" component={Tracking} />
       <Route path="/customers" component={Customers} />
+      <Route path="/carriers" component={Carriers} />
       <Route path="/profile" component={Profile} />
       <Route component={NotFound} />
     </Switch>
