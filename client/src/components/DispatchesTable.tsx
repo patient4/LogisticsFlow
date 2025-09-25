@@ -1,3 +1,4 @@
+// Emergency backup while fixing the broken file
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiRequest } from "@/lib/queryClient"
@@ -15,13 +16,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -36,6 +30,8 @@ import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
+import { PDFPreviewModal } from "./PDFPreviewModal"
+import { generateDispatchHTML } from "@/lib/pdf-utils"
 
 interface Customer {
   id: string
@@ -51,8 +47,7 @@ interface Carrier {
   id: string
   name: string
   code: string
-  contactEmail: string
-  contactPhone: string
+  serviceAreas: string[]
 }
 
 interface Driver {
@@ -60,6 +55,7 @@ interface Driver {
   name: string
   phone: string
   licenseNumber: string
+  status: "available" | "on_route" | "delivering" | "offline"
 }
 
 interface Order {
@@ -67,84 +63,78 @@ interface Order {
   orderNumber: string
   pickupAddress: string
   deliveryAddress: string
-  pickupDate: string
-  deliveryDate: string
+  status: "pending" | "confirmed" | "in_transit" | "delivered" | "cancelled"
+  notes?: string
 }
 
 interface Dispatch {
   id: string
   dispatchNumber: string
-  orderId: string
-  carrierId: string
-  driverId?: string
-  rate: string
-  currency: "USD" | "CAD" | "EUR" | "GBP"
-  poNumber?: string
-  carrierMobile?: string
-  dispatchStatus: "pending" | "heading_for_pickup" | "at_pickup" | "in_transit" | "at_delivery" | "delivered"
-  notes?: string
   dispatchedAt: string
-  updatedAt: string
-  // Joined data
-  order: Order
+  dispatchStatus: "pending" | "assigned" | "in_transit" | "delivered" | "cancelled"
+  rate: string
+  currency: string
+  poNumber?: string
   customer: Customer
   carrier: Carrier
   driver?: Driver
+  order: Order
+  notes?: string
 }
 
+// Status color utility
 const getStatusColor = (status: string) => {
   switch (status) {
-    case "pending": return "bg-yellow-100 text-yellow-800"
-    case "heading_for_pickup": return "bg-blue-100 text-blue-800"
-    case "at_pickup": return "bg-purple-100 text-purple-800"
-    case "in_transit": return "bg-orange-100 text-orange-800"
-    case "at_delivery": return "bg-green-100 text-green-800"
-    case "delivered": return "bg-emerald-100 text-emerald-800"
+    case 'pending': return "bg-yellow-100 text-yellow-800"
+    case 'assigned': return "bg-blue-100 text-blue-800"
+    case 'in_transit': return "bg-purple-100 text-purple-800"
+    case 'delivered': return "bg-green-100 text-green-800"
+    case 'cancelled': return "bg-red-100 text-red-800"
     default: return "bg-gray-100 text-gray-800"
   }
 }
 
 export function DispatchesTable() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [selectedDispatch, setSelectedDispatch] = useState<Dispatch | null>(null)
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
   // Fetch dispatches
   const { data: dispatches = [], isLoading, error } = useQuery({
     queryKey: ['/api/dispatches'],
-    enabled: true,
   })
 
-  // Delete dispatch mutation
+  // Delete mutation
   const deleteDispatchMutation = useMutation({
-    mutationFn: async (dispatchId: string) => {
-      const response = await apiRequest('DELETE', `/api/dispatches/${dispatchId}`)
-      return response
+    mutationFn: async (id: string) => {
+      return apiRequest(`/api/dispatches/${id}`, {
+        method: 'DELETE',
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/dispatches'] })
-      queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
       toast({
         title: "Success",
         description: "Dispatch deleted successfully.",
       })
     },
-    onError: (error: any) => {
+    onError: (error) => {
+      console.error('Delete error:', error)
       toast({
         title: "Error",
-        description: error.message || "Failed to delete dispatch",
+        description: "Failed to delete dispatch",
         variant: "destructive",
       })
-    }
+    },
   })
 
-  // Generate dispatch PDF functionality
+  // Handle PDF download using shared utility
   const handleDownloadDispatchPDF = async (dispatch: Dispatch) => {
     try {
-      // Create dispatch HTML content
       const dispatchHTML = generateDispatchHTML(dispatch)
       
-      // Create a temporary div to render the dispatch
       const tempDiv = document.createElement('div')
       tempDiv.innerHTML = dispatchHTML
       tempDiv.style.position = 'absolute'
@@ -152,20 +142,17 @@ export function DispatchesTable() {
       tempDiv.style.top = '-9999px'
       document.body.appendChild(tempDiv)
 
-      // Capture the HTML as canvas using html2canvas
       const canvas = await html2canvas(tempDiv, {
-        width: 794, // A4 width in pixels at 96 DPI
-        scale: 2, // Higher quality - let height size dynamically to content
+        width: 794,
+        scale: 2,
       })
 
-      // Remove the temporary div
       document.body.removeChild(tempDiv)
 
-      // Create PDF using jsPDF
       const pdf = new jsPDF('p', 'mm', 'a4')
       const imgData = canvas.toDataURL('image/png')
-      const imgWidth = 210 // A4 width in mm
-      const pageHeight = 295 // A4 height in mm
+      const imgWidth = 210
+      const pageHeight = 295
       const imgHeight = (canvas.height * imgWidth) / canvas.width
       let heightLeft = imgHeight
 
@@ -174,7 +161,6 @@ export function DispatchesTable() {
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
       heightLeft -= pageHeight
 
-      // Add new pages if content exceeds one page
       while (heightLeft >= 0) {
         position = heightLeft - imgHeight
         pdf.addPage()
@@ -182,11 +168,9 @@ export function DispatchesTable() {
         heightLeft -= pageHeight
       }
 
-      // Generate filename
       const timestamp = format(new Date(), 'yyyy-MM-dd')
       const filename = `dispatch-${dispatch.dispatchNumber}-${timestamp}.pdf`
 
-      // Download the PDF
       pdf.save(filename)
 
       toast({
@@ -201,116 +185,6 @@ export function DispatchesTable() {
         variant: "destructive",
       })
     }
-  }
-
-  // Generate dispatch HTML template
-  const generateDispatchHTML = (dispatch: Dispatch) => {
-    return `
-      <div style="font-family: Arial, sans-serif; max-width: 794px; margin: 0 auto; padding: 40px; background: white;">
-        <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #8B5CF6; padding-bottom: 20px;">
-          <h1 style="color: #8B5CF6; font-size: 28px; margin: 0;">DISPATCH DOCUMENT</h1>
-          <p style="color: #666; margin: 10px 0;">Professional Logistics Dispatch Services</p>
-        </div>
-        
-        <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
-          <div>
-            <h3 style="color: #333; border-bottom: 2px solid #8B5CF6; padding-bottom: 5px;">Dispatch Information:</h3>
-            <p style="margin: 10px 0; line-height: 1.6;">
-              <strong>Dispatch #:</strong> ${dispatch.dispatchNumber}<br>
-              <strong>Order #:</strong> ${dispatch.order.orderNumber}<br>
-              <strong>Status:</strong> ${dispatch.dispatchStatus.replaceAll('_', ' ').toUpperCase()}<br>
-              <strong>Dispatched At:</strong> ${format(new Date(dispatch.dispatchedAt), 'PPP p')}<br>
-              ${dispatch.poNumber ? `<strong>PO Number:</strong> ${dispatch.poNumber}<br>` : ''}
-            </p>
-          </div>
-          <div style="text-align: right;">
-            <h3 style="color: #333; border-bottom: 2px solid #8B5CF6; padding-bottom: 5px;">Financial Details:</h3>
-            <p style="margin: 10px 0; line-height: 1.6;">
-              <strong>Rate:</strong> <span style="color: #8B5CF6; font-size: 18px;">${dispatch.currency} ${dispatch.rate}</span><br>
-              <strong>Currency:</strong> ${dispatch.currency}<br>
-              <strong>Generated:</strong> ${format(new Date(), 'PPP p')}
-            </p>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 30px;">
-          <h3 style="color: #333; border-bottom: 2px solid #8B5CF6; padding-bottom: 5px; margin-bottom: 15px;">Customer Information:</h3>
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #8B5CF6;">
-            <p style="margin: 0; line-height: 1.6;">
-              <strong style="color: #8B5CF6;">${dispatch.customer.name}</strong><br>
-              Email: ${dispatch.customer.email}<br>
-              Phone: ${dispatch.customer.phone}<br>
-              Address: ${dispatch.customer.address}, ${dispatch.customer.city}, ${dispatch.customer.country}
-            </p>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 30px;">
-          <h3 style="color: #333; border-bottom: 2px solid #8B5CF6; padding-bottom: 5px; margin-bottom: 15px;">Carrier Information:</h3>
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #8B5CF6;">
-            <p style="margin: 0; line-height: 1.6;">
-              <strong style="color: #8B5CF6;">${dispatch.carrier.name}</strong><br>
-              Code: ${dispatch.carrier.code}<br>
-              Contact Email: ${dispatch.carrier.contactEmail}<br>
-              Contact Phone: ${dispatch.carrier.contactPhone}<br>
-              ${dispatch.carrierMobile ? `Mobile: ${dispatch.carrierMobile}<br>` : ''}
-            </p>
-          </div>
-        </div>
-
-        ${dispatch.driver ? `
-        <div style="margin-bottom: 30px;">
-          <h3 style="color: #333; border-bottom: 2px solid #8B5CF6; padding-bottom: 5px; margin-bottom: 15px;">Driver Information:</h3>
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #8B5CF6;">
-            <p style="margin: 0; line-height: 1.6;">
-              <strong style="color: #8B5CF6;">${dispatch.driver.name}</strong><br>
-              Phone: ${dispatch.driver.phone}<br>
-              License #: ${dispatch.driver.licenseNumber}
-            </p>
-          </div>
-        </div>
-        ` : ''}
-
-        <div style="margin-bottom: 30px;">
-          <h3 style="color: #333; border-bottom: 2px solid #8B5CF6; padding-bottom: 5px; margin-bottom: 15px;">Pickup & Delivery Details:</h3>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <thead>
-              <tr style="background-color: #8B5CF6; color: white;">
-                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Type</th>
-                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Address</th>
-                <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Date & Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style="background-color: #f8f9fa;">
-                <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold; color: #8B5CF6;">PICKUP</td>
-                <td style="padding: 12px; border: 1px solid #ddd;">${dispatch.order.pickupAddress}</td>
-                <td style="padding: 12px; border: 1px solid #ddd;">${format(new Date(dispatch.order.pickupDate), 'PPP')}</td>
-              </tr>
-              <tr style="background-color: white;">
-                <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold; color: #8B5CF6;">DELIVERY</td>
-                <td style="padding: 12px; border: 1px solid #ddd;">${dispatch.order.deliveryAddress}</td>
-                <td style="padding: 12px; border: 1px solid #ddd;">${format(new Date(dispatch.order.deliveryDate), 'PPP')}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        ${dispatch.notes ? `
-        <div style="margin-bottom: 30px;">
-          <h3 style="color: #333; border-bottom: 2px solid #8B5CF6; padding-bottom: 5px; margin-bottom: 15px;">Notes:</h3>
-          <div style="background-color: #fffbeb; padding: 20px; border-radius: 8px; border-left: 4px solid #f59e0b;">
-            <p style="margin: 0; line-height: 1.6; color: #92400e;">${dispatch.notes}</p>
-          </div>
-        </div>
-        ` : ''}
-
-        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb; color: #666; font-size: 12px;">
-          <p>This dispatch document was generated electronically and is valid without signature.</p>
-          <p>For questions or concerns, please contact our logistics team.</p>
-        </div>
-      </div>
-    `
   }
 
   // Filter dispatches based on search
@@ -440,11 +314,8 @@ export function DispatchesTable() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            // TODO: Implement PDF preview modal
-                            toast({
-                              title: "Coming Soon",
-                              description: "PDF preview functionality will be implemented",
-                            })
+                            setSelectedDispatch(dispatch)
+                            setPreviewModalOpen(true)
                           }}
                           data-testid={`button-preview-pdf-${dispatch.id}`}
                         >
@@ -466,7 +337,6 @@ export function DispatchesTable() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            // TODO: Implement update dispatch
                             toast({
                               title: "Coming Soon",
                               description: "Update dispatch functionality will be implemented",
@@ -516,6 +386,15 @@ export function DispatchesTable() {
           </div>
         )}
       </CardContent>
+      
+      <PDFPreviewModal
+        dispatch={selectedDispatch}
+        isOpen={previewModalOpen}
+        onClose={() => {
+          setPreviewModalOpen(false)
+          setSelectedDispatch(null)
+        }}
+      />
     </Card>
   )
 }
