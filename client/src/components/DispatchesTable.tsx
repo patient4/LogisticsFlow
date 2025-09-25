@@ -31,6 +31,7 @@ import { format } from "date-fns"
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import { PDFPreviewModal } from "./PDFPreviewModal"
+import { DispatchEditModal } from "./DispatchEditModal"
 import { generateDispatchHTML } from "@/lib/pdf-utils"
 
 interface Customer {
@@ -97,6 +98,7 @@ const getStatusColor = (status: string) => {
 export function DispatchesTable() {
   const [searchQuery, setSearchQuery] = useState("")
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedDispatch, setSelectedDispatch] = useState<Dispatch | null>(null)
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -337,10 +339,8 @@ export function DispatchesTable() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            toast({
-                              title: "Coming Soon",
-                              description: "Update dispatch functionality will be implemented",
-                            })
+                            setSelectedDispatch(dispatch)
+                            setEditModalOpen(true)
                           }}
                           data-testid={`button-edit-${dispatch.id}`}
                         >
@@ -392,6 +392,15 @@ export function DispatchesTable() {
         isOpen={previewModalOpen}
         onClose={() => {
           setPreviewModalOpen(false)
+          setSelectedDispatch(null)
+        }}
+      />
+      
+      <DispatchEditModal
+        dispatch={selectedDispatch}
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false)
           setSelectedDispatch(null)
         }}
       />

@@ -461,6 +461,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete dispatch
+  // Update dispatch
+  app.patch("/api/dispatches/:id", authenticateToken, async (req, res) => {
+    try {
+      const dispatchId = req.params.id;
+      
+      // Parse and validate update data
+      const updateData = updateDispatchSchema.parse(req.body);
+      
+      // Verify dispatch exists
+      const existingDispatch = await storage.getDispatch(dispatchId);
+      if (!existingDispatch) {
+        return res.status(404).json({ error: "Dispatch not found" });
+      }
+      
+      // If carrier is being changed, verify new carrier exists
+      if (updateData.carrierId) {
+        const carrier = await storage.getCarrier(updateData.carrierId);
+        if (!carrier) {
+          return res.status(404).json({ error: "Carrier not found" });
+        }
+      }
+      
+      // If driver is being assigned, verify driver exists
+      if (updateData.driverId) {
+        const driver = await storage.getDriver(updateData.driverId);
+        if (!driver) {
+          return res.status(404).json({ error: "Driver not found" });
+        }
+      }
+      
+      // Update dispatch
+      const updatedDispatch = await storage.updateDispatch(dispatchId, updateData);
+      if (!updatedDispatch) {
+        return res.status(500).json({ error: "Failed to update dispatch" });
+      }
+      
+      // Add tracking event for status changes
+      if (updateData.dispatchStatus && updateData.dispatchStatus !== existingDispatch.dispatchStatus) {
+        await storage.addOrderTrackingEvent({
+          orderId: existingDispatch.orderId,
+          status: updateData.dispatchStatus,
+          description: `Dispatch status updated to: ${updateData.dispatchStatus.replace('_', ' ')}`,
+        });
+      }
+      
+      res.json(updatedDispatch);
+    } catch (error: any) {
+      console.error('Update dispatch error:', error);
+      
+      // Handle Zod validation errors
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          error: "Invalid update data", 
+          details: error.errors 
+        });
+      }
+      
+      res.status(500).json({ error: "Failed to update dispatch" });
+    }
+  });
+
   app.delete("/api/dispatches/:id", authenticateToken, async (req, res) => {
     try {
       const dispatchId = req.params.id;
