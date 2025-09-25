@@ -10,7 +10,7 @@ import {
   type Dispatch, type InsertDispatch
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, like, and, or, count, sql } from "drizzle-orm";
+import { eq, desc, like, and, or, count, sql, ilike } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 // Enhanced storage interface with all CRUD operations needed
@@ -274,6 +274,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchOrders(query: string): Promise<(Order & { customer: Customer; carrier?: Carrier; driver?: Driver })[]> {
+    const searchTerm = `%${query}%`;
+    const fuzzyThreshold = 0.3; // Minimum similarity score for trigram matching
+    
     const result = await db.select({
       order: orders,
       customer: customers,
@@ -285,11 +288,25 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(carriers, eq(orders.carrierId, carriers.id))
     .leftJoin(drivers, eq(orders.driverId, drivers.id))
     .where(
-      and(
-        like(orders.orderNumber, `%${query}%`),
-        like(customers.name, `%${query}%`)
+      or(
+        // ILIKE searches for exact substring matches (case-insensitive)
+        ilike(orders.orderNumber, searchTerm),
+        ilike(customers.name, searchTerm),
+        ilike(orders.pickupPONumber, searchTerm),
+        ilike(orders.deliveryPONumber, searchTerm),
+        ilike(orders.pickupAddress, searchTerm),
+        ilike(orders.deliveryAddress, searchTerm),
+        
+        // Trigram similarity searches for fuzzy matches
+        sql`SIMILARITY(${orders.orderNumber}, ${query}) > ${fuzzyThreshold}`,
+        sql`SIMILARITY(${customers.name}, ${query}) > ${fuzzyThreshold}`,
+        sql`SIMILARITY(${orders.pickupPONumber}, ${query}) > ${fuzzyThreshold}`,
+        sql`SIMILARITY(${orders.deliveryPONumber}, ${query}) > ${fuzzyThreshold}`,
+        sql`SIMILARITY(${orders.pickupAddress}, ${query}) > ${fuzzyThreshold}`,
+        sql`SIMILARITY(${orders.deliveryAddress}, ${query}) > ${fuzzyThreshold}`
       )
-    );
+    )
+    .orderBy(desc(orders.createdAt));
 
     return result.map(row => ({
       ...row.order,
