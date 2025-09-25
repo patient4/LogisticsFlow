@@ -258,6 +258,7 @@ export function OrdersTable() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/metrics'] })
       toast({ title: "Success", description: "Order status updated successfully" })
     },
     onError: () => {
@@ -273,6 +274,7 @@ export function OrdersTable() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] })
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/metrics'] })
       toast({ title: "Success", description: "Payment status updated successfully" })
     },
     onError: () => {

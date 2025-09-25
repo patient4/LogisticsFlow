@@ -122,6 +122,8 @@ export function TrackingTable() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/dispatches'] })
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === '/api/orders' })
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/metrics'] })
       toast({
         title: "Success",
         description: "Tracking status updated successfully.",
