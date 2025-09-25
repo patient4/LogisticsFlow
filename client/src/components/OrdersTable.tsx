@@ -496,17 +496,9 @@ export function OrdersTable() {
     },
   })
 
-  // Filtered orders based on search and status
-  const filteredOrders = useMemo(() => {
-    if (!orders) return []
-    return orders.filter(order => {
-      const matchesSearch = searchQuery === "" || 
-        order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.customer.name.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesStatus = statusFilter === "all" || order.orderStatus === statusFilter
-      return matchesSearch && matchesStatus
-    })
-  }, [orders, searchQuery, statusFilter])
+  // Orders are already filtered server-side via API search params
+  // The backend handles fuzzy search across Order ID, PO Numbers, Customer Names, and Addresses
+  const filteredOrders = orders || []
 
   // Handle checkbox selection
   const handleSelectOrder = (orderId: string, checked: boolean) => {
@@ -808,7 +800,7 @@ export function OrdersTable() {
           <div className="relative min-w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
-              placeholder="Search orders or customers..."
+              placeholder="Search by Order ID, PO Number, Customer, or Address..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
