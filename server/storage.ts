@@ -62,6 +62,7 @@ export interface IStorage {
   createDispatch(dispatch: InsertDispatch): Promise<Dispatch>;
   getDispatch(id: string): Promise<Dispatch | undefined>;
   getDispatches(limit?: number, offset?: number): Promise<Dispatch[]>;
+  updateDispatch(id: string, dispatch: Partial<InsertDispatch>): Promise<Dispatch | undefined>;
   getDispatchesByOrder(orderId: string): Promise<Dispatch[]>;
   
   // Dashboard metrics
@@ -420,6 +421,14 @@ export class DatabaseStorage implements IStorage {
       carrier: row.carrier!,
       driver: row.driver || undefined,
     })) as any;
+  }
+
+  async updateDispatch(id: string, dispatch: Partial<InsertDispatch>): Promise<Dispatch | undefined> {
+    const [updated] = await db.update(dispatches)
+      .set({ ...dispatch, updatedAt: new Date() })
+      .where(eq(dispatches.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async getDispatchesByOrder(orderId: string): Promise<Dispatch[]> {

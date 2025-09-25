@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { 
   insertUserSchema, insertCustomerSchema, insertCarrierSchema, 
   insertDriverSchema, insertOrderSchema, insertOrderTrackingEventSchema,
-  insertDispatchSchema 
+  insertDispatchSchema, updateDispatchSchema
 } from "@shared/schema";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";

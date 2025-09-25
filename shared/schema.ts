@@ -242,6 +242,14 @@ export const insertDispatchSchema = createInsertSchema(dispatches).omit({
   updatedAt: true,
 });
 
+export const updateDispatchSchema = createInsertSchema(dispatches).omit({
+  id: true,
+  orderId: true, // Cannot change the order after dispatch creation
+  dispatchNumber: true,
+  dispatchedAt: true,
+  updatedAt: true,
+}).partial(); // All fields optional for updates
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
