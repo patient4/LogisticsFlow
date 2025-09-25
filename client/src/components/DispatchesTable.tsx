@@ -368,8 +368,7 @@ export function DispatchesTable() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Dispatch ID</TableHead>
-                  <TableHead>Order Number</TableHead>
+                  <TableHead>Order & PO Number</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Carrier Name</TableHead>
                   <TableHead>Driver Info</TableHead>
@@ -383,13 +382,17 @@ export function DispatchesTable() {
               <TableBody>
                 {filteredDispatches.map((dispatch: Dispatch) => (
                   <TableRow key={dispatch.id}>
-                    <TableCell className="font-medium" data-testid={`text-dispatch-id-${dispatch.id}`}>
-                      {dispatch.dispatchNumber}
-                    </TableCell>
-                    <TableCell data-testid={`text-order-number-${dispatch.id}`}>
-                      <span className="font-medium text-foreground">
-                        {dispatch.order.orderNumber}
-                      </span>
+                    <TableCell className="font-medium" data-testid={`text-order-po-${dispatch.id}`}>
+                      <div className="space-y-1">
+                        <div className="font-medium text-foreground">
+                          {dispatch.order.orderNumber}
+                        </div>
+                        {dispatch.poNumber && (
+                          <div className="text-sm text-muted-foreground">
+                            PO: {dispatch.poNumber}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell data-testid={`text-customer-${dispatch.id}`}>
                       <div className="space-y-1">
@@ -436,11 +439,27 @@ export function DispatchesTable() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDownloadDispatchPDF(dispatch)}
+                          onClick={() => {
+                            // TODO: Implement PDF preview modal
+                            toast({
+                              title: "Coming Soon",
+                              description: "PDF preview functionality will be implemented",
+                            })
+                          }}
                           data-testid={`button-preview-pdf-${dispatch.id}`}
                         >
+                          <Eye className="w-4 h-4 mr-1" />
+                          Preview
+                        </Button>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadDispatchPDF(dispatch)}
+                          data-testid={`button-download-pdf-${dispatch.id}`}
+                        >
                           <FileText className="w-4 h-4 mr-1" />
-                          PDF
+                          Download
                         </Button>
                         
                         <Button
