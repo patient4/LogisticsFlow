@@ -31,7 +31,7 @@ function Router() {
 
 function AuthenticatedApp() {
   const { user, isLoading, logout } = useAuth();
-  
+
   // Set up global logout handler for 401 responses
   useEffect(() => {
     setUnauthorizedHandler(() => {
@@ -47,7 +47,7 @@ function AuthenticatedApp() {
       </div>
     );
   }
-  
+
   if (!user) {
     return <LoginPage />;
   }
@@ -66,10 +66,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthProvider>
-          <AuthenticatedApp />
-          <Toaster />
-        </AuthProvider>
+        <AuthenticatedApp />
+        <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
   );
